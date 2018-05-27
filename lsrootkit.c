@@ -174,10 +174,11 @@ int CheckRights(char* tmp_path)
 }
 
 
-static inline int ExistFileInDir(char* path, char* pid_string, int* exist)
+static inline int ExistStartNumericInDir(char* path, char* pid_string, int* exist)
 {
     DIR* dir;
     struct dirent* ent;
+    register char c;
 
     *exist = 0;
 
@@ -185,7 +186,9 @@ static inline int ExistFileInDir(char* path, char* pid_string, int* exist)
     {
         while ((ent = readdir(dir)) != NULL)
         {
-            if (strcmp(ent->d_name, pid_string) == 0)
+            c = ent->d_name[0];
+
+            if (c >= '0' && c <= '9' && strcmp(ent->d_name, pid_string) == 0)
             {
                 *exist = 1;
                 break;
@@ -322,7 +325,7 @@ void* BruteForceGIDFiles(void* arg)
             gid_detected = statbuf.st_gid;
         }
         exist_in_tmp = 0;
-        exist_file_ret = ExistFileInDir(th_dat->tmp_dir, file_name_ext, &exist_in_tmp);
+        exist_file_ret = ExistStartNumericInDir(th_dat->tmp_dir, file_name_ext, &exist_in_tmp);
 
         rootkit_msg_detection = CheckRootkitFilesGID(chown_ret, stat_ret, exist_file_ret, exist_in_tmp, gid_detected, actual_gid, last_gid);
         if (rootkit_msg_detection != NULL)
@@ -451,7 +454,7 @@ void _Parent(pid_t child_pid, int fd_child, int fd_parent, THD_DAT_t* th_dat)
         gid_from_proc = 0;
         proc_ret = GetGIDFromPID(&gid_from_proc, procfs_childpid_dir_name);
         exist_in_proc = 0;
-        exist_in_proc_ret = ExistFileInDir((char*)"/proc/", pid_string, &exist_in_proc);
+        exist_in_proc_ret = ExistStartNumericInDir((char*)"/proc/", pid_string, &exist_in_proc);
 
         write_ret = write(fd_parent, &read_state, sizeof(read_state));
         if ((read_ret == -1) || (read_ret == 0))
