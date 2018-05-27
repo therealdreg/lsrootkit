@@ -35,7 +35,7 @@ For processes:
 7) In each iteration, the PARENT check if exist the PID of the child in: /proc. When the child PID is not listed: bingo!! the new GID is the MAGIC_GID of a rootkit. The rootkit is hidding the process.
 8) Also the PARENT check if the ACTUAL_GID recived from the PIPE is the same listed in /proc/pid/status. When is different: Alert! this is impossible, can be a rootkit doing strange things.
 
-*IMPORTANT: The 4, 5 and 6 checks is very useful in a real scenario: when the GID of a process is the MAGIC_GID some rootkits make impossible for the process to change their GID, this is a safe guard to avoid detections. Then, we are detecting the safe guard of the rootkit.
+*IMPORTANT: The 4, 5 and 6 checks are useful in real scenarios. Example: when the GID of a process is the MAGIC_GID some rootkits make impossible for the process to change their GID, this is a safe guard to avoid detections. Then, we are detecting the safe guard of the rootkit.
 
 **Warning: each analysis-feature can take: 48 hours in a QUADCORE CPU 3100.000 MHz (NO SSD).**
 
