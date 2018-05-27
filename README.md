@@ -37,6 +37,10 @@ lsrootkit needs run as root or with caps for bruteforce: setgid & chown.
 
 *IMPORTANT: The 4, 5 and 6 checks are useful in real scenarios. Example: when the ACTUAL_GID of a process is the MAGIC_GID some rootkits make impossible for the process to change their GID, this is a safe guard to avoid detections. Then, we are detecting the safe guard of the rootkit.
 
+## For processes
+
+## Help & cmdline
+
 **Warning: each analysis-feature can take: 48 hours in a QUADCORE CPU 3100.000 MHz (NO SSD).**
 
 ```
