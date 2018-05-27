@@ -20,6 +20,21 @@ Processes: Full GIDs process occupation (processes GID bruteforcing)
 
 Files: Full GIDs file occupation (files GID bruteforcing)
 
+The idea is very simple: a lot of rootkits uses a MAGIC GID (a random GID generated) to hide processes and files. This tool find rootkits bruteforcing all GIDs possible in the system. 
+
+For processes: (lsrootkit run as root or with caps for the work)
+
+1) It creates a PARENT and a CHILD processes.
+2) The CHILD in a loop from 0 to MAX_GID_POSSIBLE calls to: setgid(ACTUAL_GID).
+3) The CHILD send the new GID to PARENT via pipe. (It calls to getgid() to get the new gid).
+4) If the GID returned from getgid() is different from ACTUAL_GID (used in setgid(ACTUAL_GID)): Alert! this is impossible, can be a rootkit doing strange things. 
+5) If setgid(ACTUAL_GID) fails: Alert! this is impossible, can be a rootkit doing strange things.
+6) If GID returned is the same in two iterations of setgid(ACTUAL_GID): Alert! this is impossible, can be a rootkit doing strange things. 
+7) The PARENT check if exist the PID of the child in: /proc. When the child PID is not listed: bingo!! the new GID is the MAGIC_GID of a rootkit. The rootkit is hidding the process.
+8) The PARENT check if the ACTUAL_GID recived from the PIPE is the same listed in /proc/pid/status. When is different: Alert! this is impossible, can be a rootkit doing strange things.
+
+*IMPORTANT: The 4, 5 and 6 checks is very useful in a real scenario: when the GID of a process is the MAGIC_GID some rootkits make impossible for the process to change their GID, this is a safe guard to avoid detections. And we are detecting this safe guard :-)
+
 **Warning: each analysis-feature can take: 48 hours in a QUADCORE CPU 3100.000 MHz (NO SSD).**
 
 ```
