@@ -14,7 +14,7 @@ Execute: ./lsrootkit
 
 **Very Important: if lsrootkit process crash you can have a rootkit in the system with some bugs: memory leaks etc.**
 
-Real scenario example: vlany rootkit crash the process because their readdir hook
+Real scenario example: vlany rootkit crash the process because their readdir hook: https://github.com/mempodippy/vlany
 
 ![vlanycrash](https://github.com/David-Reguera-Garcia-Dreg/lsrootkit/blob/master/vlanybrute.png)
 
