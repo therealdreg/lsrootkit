@@ -1,4 +1,4 @@
-/*
+/* Warning!!: the code is bullshit (is only a beta prototype).
 -
 Compile: gcc -lpthread -o lsrootkit lsrootkit.c
 If fails try: gcc -pthread -o lsrootkit lsrootkit.c
