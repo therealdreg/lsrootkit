@@ -20,6 +20,8 @@ Processes: Full GIDs process occupation (processes GID bruteforcing)
 
 Files: Full GIDs file occupation (files GID bruteforcing)
 
+**Warning: each analysis-feature can take: 48 hours in a QUADCORE CPU 3100.000 MHz (NO SSD).**
+
 ```
  lsrootkit beta0.1 - Rootkit Detector for UNIX
 -
