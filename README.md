@@ -12,7 +12,7 @@ If fails try: gcc -pthread -o lsrootkit lsrootkit.c
 
 Execute: ./lsrootkit
 
-**Very Important: if lsrootkit process crash you can have a rootkit in the system with some bugs: memory leaks etc.**
+**Very Important: if lsrootkit process crash you can have a rootkit in the system with some bugs: memory leaks etc. Example: vlany rootkit crash the process because readdir hook:**
 
 # Features
 
