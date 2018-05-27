@@ -202,48 +202,21 @@ static inline int ExistFileInDir(char* path, char* pid_string, int* exist)
 }
 
 
-
-static inline int GetGIDFromPID(unsigned int* gid, char* procfs_status_file_name)
+// NOTE: /proc/[pid] group is real gid unless process' dumpable attribute is other than 1
+static inline int GetGIDFromPID(unsigned int* gid, char* procfs_pid_dir_name)
 {
-    char buf[PROC_GID_BYTES];
-    char* aux;
-    int procfs_pid;
-    int retf = -1;
-    ssize_t read_ret = 0;
+    int stat_ret = 0;
+    struct stat statbuf;
 
-    *gid = 0;
-
-    procfs_pid = open(procfs_status_file_name, O_RDONLY);
-    if (procfs_pid == -1)
-    {
+    stat_ret = stat(procfs_pid_dir_name, &statbuf);
+    if (stat_ret == -1) {
+        *gid = 0;
         return -1;
     }
-    read_ret = read(procfs_pid, buf, sizeof(buf) - 1);
-    if ((read_ret != -1) && (read_ret != 0))
-    {
-        buf[sizeof(buf) - 1] = '\0';
-        aux = buf;
-        do
-        {
-            aux = strchr(aux + 1, '\n');
-            if (aux != NULL)
-            {
-                aux++;
-                if (aux[0] == 'G')
-                {
-                    if (sscanf(aux, "Gid:\t%u\t", gid) == 1)
-                    {
-                        retf = 0;
-                        break;
-                    }
-                }
-            }
-        } while ((aux != NULL) && (aux[0] != '\0'));
-    }
 
-    close(procfs_pid);
+    *gid = statbuf.st_gid;
 
-    return retf;
+    return 0;
 }
 
 static inline char* CheckRootkitFilesGID(int chown_ret, int stat_ret, int exist_file_ret, int exist_in_tmp, unsigned int gid_detected, unsigned int actual_gid, unsigned int last_gid)
@@ -454,7 +427,7 @@ void _Parent(pid_t child_pid, int fd_child, int fd_parent, THD_DAT_t* th_dat)
     unsigned int last_gid = 0;
     unsigned int actual_gid = 0;
     int read_state = 0;
-    char procfs_status_file_name[PATH_MAX];
+    char procfs_childpid_dir_name[PATH_MAX];
     unsigned int gid_from_proc = 0;
     char* rootkit_msg_detection;
     int i = 0;
@@ -462,8 +435,8 @@ void _Parent(pid_t child_pid, int fd_child, int fd_parent, THD_DAT_t* th_dat)
     int exist_in_proc;
     int exist_in_proc_ret;
 
-    memset(procfs_status_file_name, 0, sizeof(procfs_status_file_name));
-    sprintf(procfs_status_file_name, "/proc/%d/status", child_pid);
+    memset(procfs_childpid_dir_name, 0, sizeof(procfs_childpid_dir_name));
+    sprintf(procfs_childpid_dir_name, "/proc/%d", child_pid);
 
     memset(pid_string, 0, sizeof(pid_string));
     sprintf(pid_string, "%d", child_pid);
@@ -476,7 +449,7 @@ void _Parent(pid_t child_pid, int fd_child, int fd_parent, THD_DAT_t* th_dat)
         last_gid = gid_detected;
         read_ret = read(fd_child, &gid_detected, sizeof(gid_detected));
         gid_from_proc = 0;
-        proc_ret = GetGIDFromPID(&gid_from_proc, procfs_status_file_name);
+        proc_ret = GetGIDFromPID(&gid_from_proc, procfs_childpid_dir_name);
         exist_in_proc = 0;
         exist_in_proc_ret = ExistFileInDir((char*)"/proc/", pid_string, &exist_in_proc);
 
