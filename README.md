@@ -14,6 +14,8 @@ Execute: ./lsrootkit
 
 **Very Important: if lsrootkit process crash you can have a rootkit in the system with some bugs: memory leaks etc. Example: vlany rootkit crash the process because readdir hook:**
 
+![vlanycrash](https://github.com/David-Reguera-Garcia-Dreg/lsrootkit/blob/master/vlanybrute.png)
+
 # Features
 
 Processes: Full GIDs process occupation (processes GID bruteforcing)
