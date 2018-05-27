@@ -3,11 +3,12 @@ Rootkit Detector for UNIX.
 
 Tool created in 2013 to complement Unhide Forensic Tool: http://www.unhide-forensics.info/
 
-Warning!!: the code is bullshit (is only a beta prototype).
+**Warning!!: the code is bullshit (is only a beta prototype).**
 
 Features:
-         * Processes: Full GIDs process occupation (processes GID bruteforcing)
-         * Files: Full GIDs file occupation (files GID bruteforcing)
+
+         - Processes: Full GIDs process occupation (processes GID bruteforcing)
+         - Files: Full GIDs file occupation (files GID bruteforcing)
 
 ```
  lsrootkit beta0.1 - Rootkit Detector for UNIX
