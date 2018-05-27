@@ -31,7 +31,7 @@ For processes:
 3) The CHILD send the new GID to PARENT via pipe. (It calls to getgid() to get the new gid).
 4) If the GID returned from getgid() is different from ACTUAL_GID (used in setgid(ACTUAL_GID)): Alert! this is impossible, can be a rootkit doing strange things. 
 5) If setgid(ACTUAL_GID) fails: Alert! this is impossible, can be a rootkit doing strange things.
-6) If GID returned is the same in two iterations of setgid(ACTUAL_GID): Alert! this is impossible, can be a rootkit doing strange things. 
+6) If in two loop-iterations the GID returned is the same (last_gid == new_gid): Alert! this is impossible, can be a rootkit doing strange things. 
 7) In each iteration, the PARENT check if exist the PID of the child in: /proc. When the child PID is not listed: bingo!! the new GID is the MAGIC_GID of a rootkit. The rootkit is hidding the process.
 8) Also the PARENT check if the ACTUAL_GID recived from the PIPE is the same listed in /proc/pid/status. When is different: Alert! this is impossible, can be a rootkit doing strange things.
 
