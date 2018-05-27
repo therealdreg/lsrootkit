@@ -5,8 +5,7 @@ Tool created in 2013 to complement Unhide Forensic Tool: http://www.unhide-foren
 
 **Warning!!: the code is bullshit (is only a beta prototype).**
 
-Features:
-
+# Features
          - Processes: Full GIDs process occupation (processes GID bruteforcing)
          - Files: Full GIDs file occupation (files GID bruteforcing)
 
