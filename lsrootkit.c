@@ -44,6 +44,7 @@ SOFTWARE.
 #include <limits.h>
 #include <fcntl.h>
 #include <sys/types.h>
+#include <signal.h>
 
 #include <argp.h>
 
@@ -97,7 +98,7 @@ char* CreateTempDir(void);
 void* BruteForceGIDProcesses(void* arg);
 void* BruteForceGIDFiles(void* arg);
 int main(int argc, char* argv[]);
-
+int CheckProcAccess(void);
 
 typedef void* (*THREAD_FUNC_t)(void* arg);
 
@@ -109,12 +110,19 @@ int CheckRights(char* tmp_path)
     struct stat statbuf;
     gid_t actual_gid = 8;
 
+    DINFO_MSG("Checking this-process rights\n");
+
+    if (CheckProcAccess() == -1)
+    {
+        return -1;
+    }
+
     memset(test_file, 0, sizeof(test_file));
     memset(&statbuf, 0, sizeof(statbuf));
 
     sprintf(test_file, "%s/_test", tmp_path);
 
-    DINFO_MSG("Checking this-process rights with file: %s\n", test_file);
+    DINFO_MSG("Checking rights with file: %s\n", test_file);
 
     retf = -1;
     file = fopen(test_file, "wb+");
@@ -246,6 +254,84 @@ static inline int GetGIDFromPID(unsigned int* gid, char* procfs_status_file_name
     }
 
     close(procfs_pid);
+
+    return retf;
+}
+
+int CheckProcAccess(void)
+{
+    char pid_string[PATH_MAX];
+    char procpath[PATH_MAX];
+    unsigned int gid = 0;
+    pid_t child_pid = 0;
+    int retf = -1;
+    int exist = 0;
+
+    DINFO_MSG("Checking /proc access & info returned\n");
+
+    memset(pid_string, 0, sizeof(pid_string));
+    memset(procpath, 0, sizeof(procpath));
+
+    retf = -1;
+    child_pid = fork();
+    if (child_pid == 0)
+    {
+        while (1)
+        {
+            sleep(1);
+        }
+    }
+    else
+    {
+        DOK_MSG("created child pid: %d\n", child_pid)
+
+        sprintf(pid_string, "%d", (int)child_pid);
+        exist = 0;
+        if (ExistFileInDir((char*) "/proc", pid_string, &exist) == -1)
+        {
+            DERROR_MSG("dont access to /proc\n");
+        }
+        else
+        {
+            DOK_MSG("accessing to /proc\n");
+            if (exist == 0)
+            {
+                DERROR_MSG("pid dont exist in /proc\n");
+            }
+            else
+            {
+                DOK_MSG("pid exist in /proc\n");
+
+                sprintf(procpath, "/proc/%s/status", pid_string);
+                if (GetGIDFromPID(&gid, procpath) == -1)
+                {
+                    DERROR_MSG("%s DONT exist\n", procpath);
+                }
+                else
+                {
+                    DOK_MSG("%s exist, parent child: %u, child gid: %u\n", procpath, (unsigned int) getgid(), gid);
+                    if (gid != getgid())
+                    {
+                        DERROR_MSG("gid of child and parent is different\n");
+                    }
+                    else
+                    {
+                        DOK_MSG("gid of child and parent is the same\n");
+                        retf = 0;
+                    }
+                }
+            }
+        }
+
+        if (kill(child_pid, SIGKILL) == 0)
+        {
+            DOK_MSG("killed child: %d\n", child_pid);
+        }
+        else
+        {
+            DERROR_MSG("killing child: %d\n", child_pid)
+        }
+    }
 
     return retf;
 }
@@ -950,7 +1036,7 @@ int mainw(struct arguments* arguments)
     }
     else
     {
-        DERROR_MSG("the process have not rights, run it as root or set the caps for: chown, setgid\n\n");
+        DERROR_MSG("the process have not rights, run it as root or set the caps for: stat, chown, setgid & access to /proc\n\n");
     }
 
     DINFO_MSG("Deleting temp dir: %s\n\n", dir_name);
