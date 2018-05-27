@@ -22,7 +22,9 @@ Files: Full GIDs file occupation (files GID bruteforcing)
 
 The idea is very simple: a lot of rootkits uses a MAGIC GID (a random GID generated) to hide processes and files. This tool find rootkits bruteforcing all GIDs possible in the system. 
 
-For processes: (lsrootkit run as root or with caps for the work)
+lsrootkit needs run as root or with caps for bruteforce: setgid & chown.
+
+For processes: 
 
 1) It creates a PARENT and a CHILD processes.
 2) The CHILD in a loop from 0 to MAX_GID_POSSIBLE calls to: setgid(ACTUAL_GID).
