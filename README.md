@@ -38,14 +38,18 @@ lsrootkit needs run as root or with caps for bruteforce: setgid & chown.
 4) If the GID returned from getgid() is different from ACTUAL_GID (used in setgid(ACTUAL_GID)): Alert! this is impossible, can be a rootkit doing strange things. 
 5) If setgid(ACTUAL_GID) fails: Alert! this is impossible, can be a rootkit doing strange things.
 6) If in two loop-iterations the GID returned is the same (last_gid == new_gid): Alert! this is impossible, can be a rootkit doing strange things. 
-7) In each iteration, the PARENT check if exist the PID of the child in: /proc. When the child PID is not listed: bingo!! the new GID is the MAGIC_GID of a rootkit. The rootkit is hidding the process.
+7) In each iteration, the PARENT check if exist the PID of the child in: /proc (readdir/getdents). When the child PID is not listed: bingo!! the new GID is the MAGIC_GID of a rootkit. The rootkit is hidding the process.
 8) Also the PARENT check if the ACTUAL_GID recived from the PIPE is the same listed in /proc/pid/status. When is different: Alert! this is impossible, can be a rootkit doing strange things.
 
 *IMPORTANT: The 4, 5 and 6 checks are useful in real scenarios. Example: when the ACTUAL_GID of a process is the MAGIC_GID some rootkits make impossible for the process to change their GID, this is a safe guard to avoid detections. Then, we are detecting the safe guard of the rootkit.
 
 ## For files
 
-dd
+1) It creates a loop from 0 to MAX_GID_POSSIBLE calling to: chown(ACTUAL_GID).
+2) If the GID returned from stat() is different from ACTUAL_GID (used in chown(ACTUAL_GID)): Alert! this is impossible, can be a rootkit doing strange things. 
+3) If chown(ACTUAL_GID) or stat() fails: Alert! this is impossible, can be a rootkit doing strange things.
+4) If in two loop-iterations the GID returned is the same (last_gid == new_gid): Alert! this is impossible, can be a rootkit doing strange things. 
+5) In each iteration, the process checks if exist the file in the directory (readdir/getdents). When the file is not listed: bingo!! the new GID is the MAGIC_GID of a rootkit. The rootkit is hidding the file.
 
 ## Help & cmdline
 
