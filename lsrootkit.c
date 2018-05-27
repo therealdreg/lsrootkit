@@ -185,7 +185,7 @@ static inline int ExistFileInDir(char* path, char* pid_string, int* exist)
     {
         while ((ent = readdir(dir)) != NULL)
         {
-            if ((ent->d_name[0] == '.') || ((ent->d_name[0] == '.') && (ent->d_name[1] == '.')))
+            if (ent->d_name[0] == '.')
             {
                 continue;
             }
