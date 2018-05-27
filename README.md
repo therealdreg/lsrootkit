@@ -18,7 +18,9 @@ Real scenario example: vlany rootkit crash the process because their readdir hoo
 
 ![vlanycrash](https://github.com/David-Reguera-Garcia-Dreg/lsrootkit/blob/master/vlanybrute.png)
 
-Is very funny because vlany is designed to avoid this kind of tool. It tries avoid GID bruteforcing using xattrs in files instead of a MAGIC_GID. But the code in their readdir hook crash the process in 2-3 mins. This kind of crash can be interpreted like: there are something bad coded hooking me. Also vlany tries avoid GID bruteforcing in processes but lsrootkit can detects their setgid safeguard.
+This is very funny because vlany is designed to avoid this kind of tool. It tries avoid GID bruteforcing using xattrs in files instead of a MAGIC_GID. But the code in their readdir hook crash the process in 2-3 mins. This kind of crash can be interpreted like: there are something bad coded hooking me. 
+
+Also vlany tries avoid GID bruteforcing in processes but lsrootkit can detect their setgid safeguard.
 
 # Features
 
