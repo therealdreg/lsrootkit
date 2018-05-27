@@ -24,6 +24,8 @@ The idea is very simple: a lot of rootkits uses a MAGIC GID (a random GID genera
 
 lsrootkit needs run as root or with caps for bruteforce: setgid & chown.
 
+**Warning: each analysis-feature can take: 48 hours in a QUADCORE CPU 3100.000 MHz (NO SSD).**
+
 ## For processes
 
 1) It creates a PARENT and a CHILD processes.
@@ -37,11 +39,12 @@ lsrootkit needs run as root or with caps for bruteforce: setgid & chown.
 
 *IMPORTANT: The 4, 5 and 6 checks are useful in real scenarios. Example: when the ACTUAL_GID of a process is the MAGIC_GID some rootkits make impossible for the process to change their GID, this is a safe guard to avoid detections. Then, we are detecting the safe guard of the rootkit.
 
-## For processes
+## For files
+
+dd
 
 ## Help & cmdline
 
-**Warning: each analysis-feature can take: 48 hours in a QUADCORE CPU 3100.000 MHz (NO SSD).**
 
 ```
  lsrootkit beta0.1 - Rootkit Detector for UNIX
