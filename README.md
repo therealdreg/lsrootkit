@@ -70,6 +70,9 @@ root      2643 -513848494 lsrootkit
 root      2644 -245456886 lsrootkit
 root      2645 291438594 lsrootkit
 root      2646 23009595 lsrootkit
+```
+
+```
 [!! root@fr33project 14:17:27 ~]# ps o user,pid,gid,comm | grep lsrootkit
 root      2614     0 lsrootkit
 root      2631 828395894 lsrootkit
@@ -122,6 +125,9 @@ total 0
 -rw-r--r-- 1 root  536932663 0 May 27 14:21 140675514627840.files
 -rw-r--r-- 1 root  268497886 0 May 27 14:21 140675525117696.files
 -rw-r--r-- 1 root      60838 0 May 27 14:21 140675535607552.files
+```
+
+```
 [!! root@fr33project 14:22:10 ~]# ls -l /tmp/lsroot.SdbfpS
 total 0
 -rw-r--r-- 1 root 4026614564 0 May 27 14:21 140675378259712.files
@@ -142,7 +148,7 @@ total 0
 -rw-r--r-- 1 root      80117 0 May 27 14:21 140675535607552.files
 ```
 
-You should see 16 files changing their GID very fast in each ls
+You should see 16 files changing their GID very fast in each ls -l
 
 ## Help & cmdline
 
