@@ -24,7 +24,7 @@ The idea is very simple: a lot of rootkits uses a MAGIC GID (a random GID genera
 
 lsrootkit needs run as root or with caps for bruteforce: setgid & chown.
 
-For processes: 
+## For processes
 
 1) It creates a PARENT and a CHILD processes.
 2) The CHILD in a loop from 0 to MAX_GID_POSSIBLE calls to: setgid(ACTUAL_GID).
