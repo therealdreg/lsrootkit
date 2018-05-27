@@ -5,9 +5,20 @@ Tool created in 2013 to complement Unhide Forensic Tool: http://www.unhide-foren
 
 **Warning!!: the code is bullshit (is only a beta prototype).**
 
+# Compile & Run
+Compile: gcc -lpthread -o lsrootkit lsrootkit.c
+
+If fails try: gcc -pthread -o lsrootkit lsrootkit.c
+
+Execute: ./lsrootkit
+
+**Very Important: if lsrootkit process crash you can have a rootkit in the system with some bugs: memory leaks etc.**
+
 # Features
-         - Processes: Full GIDs process occupation (processes GID bruteforcing)
-         - Files: Full GIDs file occupation (files GID bruteforcing)
+
+Processes: Full GIDs process occupation (processes GID bruteforcing)
+
+Files: Full GIDs file occupation (files GID bruteforcing)
 
 ```
  lsrootkit beta0.1 - Rootkit Detector for UNIX
@@ -35,11 +46,4 @@ lsrootkit options (all analysis are ON by default):
   -V, --version              Print program version
 ```
 
-# Compile & Run
-Compile: gcc -lpthread -o lsrootkit lsrootkit.c
 
-If fails try: gcc -pthread -o lsrootkit lsrootkit.c
-
-Execute: ./lsrootkit
-
-Very Important: if lsrootkit process crash you can have a rootkit in the system with some bugs: memory leaks etc.
