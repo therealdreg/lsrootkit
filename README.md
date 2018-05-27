@@ -1,5 +1,5 @@
 # lsrootkit
-Rootkit Detector for UNIX. 
+Rootkit Detector for UNIX (the actual beta only works as expected in Linux)
 
 Tool created in 2013 to complement Unhide Forensic Tool: http://www.unhide-forensics.info/
 
@@ -46,4 +46,11 @@ lsrootkit options (all analysis are ON by default):
   -V, --version              Print program version
 ```
 
+# Detected Rootkits
 
+Please, I need your help to mantain this list!! (create an issue with info)
+
+- enyelkm: LKM rootkit for Linux x86 with the 2.6 kernel. https://github.com/David-Reguera-Garcia-Dreg/enyelkm
+- vlany: Linux LD_PRELOAD rootkit (x86 and x86_64 architectures). https://github.com/mempodippy/vlany
+- reptile: LKM Linux rootkit. https://github.com/f0rb1dd3n/Reptile
+- jynx2: LD_PRELOAD userland rootkit based on the original JynxKi. https://github.com/chokepoint/Jynx2
