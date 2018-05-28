@@ -49,6 +49,52 @@ lsrootkit needs run as root or with caps for bruteforce: setgid & chown.
 
 *IMPORTANT: The 4, 5 and 6 checks are useful in real scenarios. Example: when the ACTUAL_GID of a process is the MAGIC_GID some rootkits make impossible for the process to change their GID, this is a safe guard to avoid detections. Then, we are detecting the safe guard of the rootkit.
 
+How the check if the analysis is working good:
+
+```
+[!! root@fr33project 14:17:21 ~]# ps o user,pid,gid,comm | grep lsrootkit
+root      2614     0 lsrootkit
+root      2631 828390172 lsrootkit
+root      2632 1096822881 lsrootkit
+root      2633 1365307256 lsrootkit
+root      2634 1633704931 lsrootkit
+root      2635 1902096925 lsrootkit
+root      2636 -2124457736 lsrootkit
+root      2637 559915649 lsrootkit
+root      2638 -1855971818 lsrootkit
+root      2639 -1319109121 lsrootkit
+root      2640 -1587593627 lsrootkit
+root      2641 -1050718186 lsrootkit
+root      2642 -782346219 lsrootkit
+root      2643 -513848494 lsrootkit
+root      2644 -245456886 lsrootkit
+root      2645 291438594 lsrootkit
+root      2646 23009595 lsrootkit
+```
+
+```
+[!! root@fr33project 14:17:27 ~]# ps o user,pid,gid,comm | grep lsrootkit
+root      2614     0 lsrootkit
+root      2631 828395894 lsrootkit
+root      2632 1096828582 lsrootkit
+root      2633 1365313071 lsrootkit
+root      2634 1633710689 lsrootkit
+root      2635 1902102633 lsrootkit
+root      2636 -2124452025 lsrootkit
+root      2637 559921448 lsrootkit
+root      2638 -1855966060 lsrootkit
+root      2639 -1319103376 lsrootkit
+root      2640 -1587587943 lsrootkit
+root      2641 -1050712491 lsrootkit
+root      2642 -782340414 lsrootkit
+root      2643 -513842741 lsrootkit
+root      2644 -245451101 lsrootkit
+root      2645 291444348 lsrootkit
+root      2646 23015307 lsrootkit
+```
+
+You should see 16 processes changing their GID very fast in each ps.
+
 ## For files
 
 1) It creates a loop from 0 to MAX_GID_POSSIBLE calling to: chown(ACTUAL_GID).
@@ -56,6 +102,53 @@ lsrootkit needs run as root or with caps for bruteforce: setgid & chown.
 3) If chown(ACTUAL_GID) or stat() fails: Alert! this is impossible, can be a rootkit doing strange things.
 4) If in two loop-iterations the GID returned is the same (last_gid == new_gid): Alert! this is impossible, can be a rootkit doing strange things. 
 5) In each iteration, the process checks if exist the file in the directory (readdir/getdents). When the file is not listed: bingo!! the new GID is the MAGIC_GID of a rootkit. The rootkit is hidding the file.
+
+
+How the check if the analysis is working good: ls in the temp path of lsrootkit 
+
+```
+[!! root@fr33project 14:22:04 ~]# ls -l /tmp/lsroot.SdbfpS
+total 0
+-rw-r--r-- 1 root 4026594762 0 May 27 14:21 140675378259712.files
+-rw-r--r-- 1 root 3758158753 0 May 27 14:21 140675388749568.files
+-rw-r--r-- 1 root 3489726270 0 May 27 14:21 140675399239424.files
+-rw-r--r-- 1 root 3221289355 0 May 27 14:21 140675409729280.files
+-rw-r--r-- 1 root 2952853954 0 May 27 14:21 140675420219136.files
+-rw-r--r-- 1 root 2684416720 0 May 27 14:21 140675430708992.files
+-rw-r--r-- 1 root 2415982578 0 May 27 14:21 140675441198848.files
+-rw-r--r-- 1 root 2147546885 0 May 27 14:21 140675451688704.files
+-rw-r--r-- 1 root 1879112486 0 May 27 14:21 140675462178560.files
+-rw-r--r-- 1 root 1610675753 0 May 27 14:21 140675472668416.files
+-rw-r--r-- 1 root 1342242039 0 May 27 14:21 140675483158272.files
+-rw-r--r-- 1 root 1073805230 0 May 27 14:21 140675493648128.files
+-rw-r--r-- 1 root  805369459 0 May 27 14:21 140675504137984.files
+-rw-r--r-- 1 root  536932663 0 May 27 14:21 140675514627840.files
+-rw-r--r-- 1 root  268497886 0 May 27 14:21 140675525117696.files
+-rw-r--r-- 1 root      60838 0 May 27 14:21 140675535607552.files
+```
+
+```
+[!! root@fr33project 14:22:10 ~]# ls -l /tmp/lsroot.SdbfpS
+total 0
+-rw-r--r-- 1 root 4026614564 0 May 27 14:21 140675378259712.files
+-rw-r--r-- 1 root 3758177213 0 May 27 14:21 140675388749568.files
+-rw-r--r-- 1 root 3489745995 0 May 27 14:21 140675399239424.files
+-rw-r--r-- 1 root 3221308027 0 May 27 14:21 140675409729280.files
+-rw-r--r-- 1 root 2952872962 0 May 27 14:21 140675420219136.files
+-rw-r--r-- 1 root 2684435702 0 May 27 14:21 140675430708992.files
+-rw-r--r-- 1 root 2416001384 0 May 27 14:21 140675441198848.files
+-rw-r--r-- 1 root 2147565897 0 May 27 14:21 140675451688704.files
+-rw-r--r-- 1 root 1879132036 0 May 27 14:21 140675462178560.files
+-rw-r--r-- 1 root 1610694197 0 May 27 14:21 140675472668416.files
+-rw-r--r-- 1 root 1342261085 0 May 27 14:21 140675483158272.files
+-rw-r--r-- 1 root 1073823702 0 May 27 14:21 140675493648128.files
+-rw-r--r-- 1 root  805388313 0 May 27 14:21 140675504137984.files
+-rw-r--r-- 1 root  536951073 0 May 27 14:21 140675514627840.files
+-rw-r--r-- 1 root  268516353 0 May 27 14:21 140675525117696.files
+-rw-r--r-- 1 root      80117 0 May 27 14:21 140675535607552.files
+```
+
+You should see 16 files changing their GID very fast in each ls -l
 
 ## Help & cmdline
 

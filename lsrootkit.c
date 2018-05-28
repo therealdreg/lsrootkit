@@ -44,6 +44,7 @@ SOFTWARE.
 #include <limits.h>
 #include <fcntl.h>
 #include <sys/types.h>
+#include <signal.h>
 
 #include <argp.h>
 
@@ -97,7 +98,7 @@ char* CreateTempDir(void);
 void* BruteForceGIDProcesses(void* arg);
 void* BruteForceGIDFiles(void* arg);
 int main(int argc, char* argv[]);
-
+int CheckProcAccess(void);
 
 typedef void* (*THREAD_FUNC_t)(void* arg);
 
@@ -109,12 +110,19 @@ int CheckRights(char* tmp_path)
     struct stat statbuf;
     gid_t actual_gid = 8;
 
+    DINFO_MSG("Checking this-process rights\n");
+
+    if (CheckProcAccess() == -1)
+    {
+        return -1;
+    }
+
     memset(test_file, 0, sizeof(test_file));
     memset(&statbuf, 0, sizeof(statbuf));
 
     sprintf(test_file, "%s/_test", tmp_path);
 
-    DINFO_MSG("Checking this-process rights with file: %s\n", test_file);
+    DINFO_MSG("Checking rights with file: %s\n", test_file);
 
     retf = -1;
     file = fopen(test_file, "wb+");
@@ -222,6 +230,84 @@ static inline int GetGIDFromPID(unsigned int* gid, char* procfs_pid_dir_name)
     return 0;
 }
 
+int CheckProcAccess(void)
+{
+    char pid_string[PATH_MAX];
+    char procpath[PATH_MAX];
+    unsigned int gid = 0;
+    pid_t child_pid = 0;
+    int retf = -1;
+    int exist = 0;
+
+    DINFO_MSG("Checking /proc access & info returned\n");
+
+    memset(pid_string, 0, sizeof(pid_string));
+    memset(procpath, 0, sizeof(procpath));
+
+    retf = -1;
+    child_pid = fork();
+    if (child_pid == 0)
+    {
+        while (1)
+        {
+            sleep(1);
+        }
+    }
+    else
+    {
+        DOK_MSG("created child pid: %d\n", child_pid)
+
+        sprintf(pid_string, "%d", (int)child_pid);
+        exist = 0;
+        if (ExistStartNumericInDir((char*) "/proc", pid_string, &exist) == -1)
+        {
+            DERROR_MSG("dont access to /proc\n");
+        }
+        else
+        {
+            DOK_MSG("accessing to /proc\n");
+            if (exist == 0)
+            {
+                DERROR_MSG("pid dont exist in /proc\n");
+            }
+            else
+            {
+                DOK_MSG("pid exist in /proc\n");
+
+                sprintf(procpath, "/proc/%s/status", pid_string);
+                if (GetGIDFromPID(&gid, procpath) == -1)
+                {
+                    DERROR_MSG("%s DONT exist\n", procpath);
+                }
+                else
+                {
+                    DOK_MSG("%s exist, parent child: %u, child gid: %u\n", procpath, (unsigned int) getgid(), gid);
+                    if (gid != getgid())
+                    {
+                        DERROR_MSG("gid of child and parent is different\n");
+                    }
+                    else
+                    {
+                        DOK_MSG("gid of child and parent is the same\n");
+                        retf = 0;
+                    }
+                }
+            }
+        }
+
+        if (kill(child_pid, SIGKILL) == 0)
+        {
+            DOK_MSG("killed child: %d\n", child_pid);
+        }
+        else
+        {
+            DERROR_MSG("killing child: %d\n", child_pid)
+        }
+    }
+
+    return retf;
+}
+
 static inline char* CheckRootkitFilesGID(int chown_ret, int stat_ret, int exist_file_ret, int exist_in_tmp, unsigned int gid_detected, unsigned int actual_gid, unsigned int last_gid)
 {
     char* rootkit_msg_detection = NULL;
@@ -278,6 +364,33 @@ static inline char* CheckRootkitFilesGID(int chown_ret, int stat_ret, int exist_
     return rootkit_msg_detection;
 }
 
+static inline void ShowEachDisplay(unsigned int* cnt, char* tag, unsigned int actual_gid, unsigned int last_gid)
+{
+    if ((*cnt % EACH_DISPLAY) == 0)
+    {
+        DINFO_MSG("t[%llu] - %s " _PCCYN  "%u" _PCRESET "/" _PCRED "%u" _PCRESET " remain: " _PCGRN "%u" _PCRESET " - The complete analysis has taken: %s\n",
+                  (unsigned long long) pthread_self(),
+                  tag,
+                  actual_gid,
+                  last_gid,
+                  last_gid - actual_gid,
+                  SPEED_TEST);
+    }
+    *cnt += 1;
+}
+
+static inline void RootkitDetected(char* tag, char* rootkit_msg_detection, THD_DAT_t* th_dat)
+{
+    DDETECTED_MSG("t[%llu] - %s rootkit detected!! %s\n\n", (unsigned long long) pthread_self(), tag, rootkit_msg_detection);
+
+    pthread_mutex_lock(th_dat->mutex);
+    fprintf(th_dat->report_path, "\n%s\n", rootkit_msg_detection);
+    fflush(th_dat->report_path);
+    pthread_mutex_unlock(th_dat->mutex);
+    th_dat->detected = 1;
+}
+
+
 void* BruteForceGIDFiles(void* arg)
 {
     THD_DAT_t* th_dat = (THD_DAT_t*)arg;
@@ -330,14 +443,7 @@ void* BruteForceGIDFiles(void* arg)
         rootkit_msg_detection = CheckRootkitFilesGID(chown_ret, stat_ret, exist_file_ret, exist_in_tmp, gid_detected, actual_gid, last_gid);
         if (rootkit_msg_detection != NULL)
         {
-            DDETECTED_MSG("t[%llu] - BruteForceGIDFiles rootkit detected!! %s\n\n", (unsigned long long) pthread_self(), rootkit_msg_detection);
-
-            pthread_mutex_lock(th_dat->mutex);
-            fprintf(th_dat->report_path, "\n%s\n", rootkit_msg_detection);
-            fflush(th_dat->report_path);
-            pthread_mutex_unlock(th_dat->mutex);
-            th_dat->detected = 1;
-
+            RootkitDetected((char*)"BruteForceGIDFiles", rootkit_msg_detection, th_dat);
             free(rootkit_msg_detection);
             rootkit_msg_detection = NULL;
 
@@ -346,10 +452,7 @@ void* BruteForceGIDFiles(void* arg)
 
         if (th_dat->arguments->disable_each_display == 0)
         {
-            if ((i++ % EACH_DISPLAY) == 0)
-            {
-                DINFO_MSG("t[%llu] - BruteForceGIDFiles last GID: %u (showing each %d checks.) Be patient: %s\n", (unsigned long long) pthread_self(), gid_detected, EACH_DISPLAY, SPEED_TEST);
-            }
+            ShowEachDisplay(&i, (char*) "BruteForceGIDFiles", actual_gid, th_dat->last_gid);
         }
     } while (actual_gid++ != th_dat->last_gid);
 
@@ -358,13 +461,13 @@ void* BruteForceGIDFiles(void* arg)
     return NULL;
 }
 
-static inline char* CheckRootkit(int exist_in_proc_ret,
-                                 int exist_in_proc,
-                                 int proc_ret,
-                                 unsigned int gid_from_proc,
-                                 unsigned int gid_detected,
-                                 unsigned int actual_gid,
-                                 unsigned int last_gid)
+static inline char* CheckRootkitProcessesGID(int exist_in_proc_ret,
+        int exist_in_proc,
+        int proc_ret,
+        unsigned int gid_from_proc,
+        unsigned int gid_detected,
+        unsigned int actual_gid,
+        unsigned int last_gid)
 {
     char* rootkit_msg_detection = NULL;
     char* type = NULL;
@@ -420,7 +523,6 @@ static inline char* CheckRootkit(int exist_in_proc_ret,
     return rootkit_msg_detection;
 }
 
-
 void _Parent(pid_t child_pid, int fd_child, int fd_parent, THD_DAT_t* th_dat)
 {
     ssize_t write_ret = 0;
@@ -433,7 +535,7 @@ void _Parent(pid_t child_pid, int fd_child, int fd_parent, THD_DAT_t* th_dat)
     char procfs_childpid_dir_name[PATH_MAX];
     unsigned int gid_from_proc = 0;
     char* rootkit_msg_detection;
-    int i = 0;
+    unsigned int i = 0;
     char pid_string[PATH_MAX];
     int exist_in_proc;
     int exist_in_proc_ret;
@@ -468,17 +570,10 @@ void _Parent(pid_t child_pid, int fd_child, int fd_parent, THD_DAT_t* th_dat)
             break;
         }
 
-        rootkit_msg_detection = CheckRootkit(exist_in_proc_ret, exist_in_proc, proc_ret, gid_from_proc, gid_detected, actual_gid, last_gid);
+        rootkit_msg_detection = CheckRootkitProcessesGID(exist_in_proc_ret, exist_in_proc, proc_ret, gid_from_proc, gid_detected, actual_gid, last_gid);
         if (rootkit_msg_detection != NULL)
         {
-            DDETECTED_MSG("t[%llu] - BruteForceGIDProcesses rootkit detected!! %s\n\n", (unsigned long long) pthread_self(), rootkit_msg_detection);
-
-            pthread_mutex_lock(th_dat->mutex);
-            fprintf(th_dat->report_path, "\n%s\n", rootkit_msg_detection);
-            fflush(th_dat->report_path);
-            pthread_mutex_unlock(th_dat->mutex);
-            th_dat->detected = 1;
-
+            RootkitDetected((char*)"BruteForceGIDProcesses", rootkit_msg_detection, th_dat);
             free(rootkit_msg_detection);
             rootkit_msg_detection = NULL;
 
@@ -487,10 +582,7 @@ void _Parent(pid_t child_pid, int fd_child, int fd_parent, THD_DAT_t* th_dat)
 
         if (th_dat->arguments->disable_each_display == 0)
         {
-            if ((i++ % EACH_DISPLAY) == 0)
-            {
-                DINFO_MSG("t[%llu] - BruteForceGIDProcesses last GID: %u (showing each %d checks.) Be patient: %s\n", (unsigned long long) pthread_self(), gid_detected, EACH_DISPLAY, SPEED_TEST);
-            }
+            ShowEachDisplay(&i, (char*) "BruteForceGIDProcesses", actual_gid, th_dat->last_gid);
         }
 
     } while (actual_gid++ != th_dat->last_gid);
@@ -922,7 +1014,7 @@ int mainw(struct arguments* arguments)
     }
     else
     {
-        DERROR_MSG("the process have not rights, run it as root or set the caps for: chown, setgid\n\n");
+        DERROR_MSG("the process have not rights, run it as root or set the caps for: stat, chown, setgid & access to /proc\n\n");
     }
 
     DINFO_MSG("Deleting temp dir: %s\n\n", dir_name);
