@@ -214,7 +214,7 @@ static inline int ExistStartNumericInDir(char* path, char* pid_string, int* exis
 
 
 // NOTE: /proc/[pid] group is real gid unless process' dumpable attribute is other than 1
-static inline int GetGIDFromPID(unsigned int* gid, char* procfs_pid_dir_name)
+static inline int GetGIDFromStatProcPID(unsigned int* gid, char* procfs_pid_dir_name)
 {
     int stat_ret = 0;
     struct stat statbuf;
@@ -228,6 +228,49 @@ static inline int GetGIDFromPID(unsigned int* gid, char* procfs_pid_dir_name)
     *gid = statbuf.st_gid;
 
     return 0;
+}
+
+static inline int GetGIDFromPID(unsigned int* gid, char* procfs_status_file_name)
+{
+    char buf[PROC_GID_BYTES];
+    char* aux;
+    int procfs_pid;
+    int retf = -1;
+    ssize_t read_ret = 0;
+
+    *gid = 0;
+
+    procfs_pid = open(procfs_status_file_name, O_RDONLY);
+    if (procfs_pid == -1)
+    {
+        return -1;
+    }
+    read_ret = read(procfs_pid, buf, sizeof(buf) - 1);
+    if ((read_ret != -1) && (read_ret != 0))
+    {
+        buf[sizeof(buf) - 1] = '\0';
+        aux = buf;
+        do
+        {
+            aux = strchr(aux + 1, '\n');
+            if (aux != NULL)
+            {
+                aux++;
+                if (aux[0] == 'G')
+                {
+                    if (sscanf(aux, "Gid:\t%u\t", gid) == 1)
+                    {
+                        retf = 0;
+                        break;
+                    }
+                }
+            }
+        } while ((aux != NULL) && (aux[0] != '\0'));
+    }
+
+    close(procfs_pid);
+
+    return retf;
 }
 
 int CheckProcAccess(void)
@@ -465,6 +508,8 @@ static inline char* CheckRootkitProcessesGID(int exist_in_proc_ret,
         int exist_in_proc,
         int proc_ret,
         unsigned int gid_from_proc,
+        int statproc_ret,
+        unsigned int gid_from_statproc,
         unsigned int gid_detected,
         unsigned int actual_gid,
         unsigned int last_gid)
@@ -482,11 +527,19 @@ static inline char* CheckRootkitProcessesGID(int exist_in_proc_ret,
     }
     else if (proc_ret == -1)
     {
-        type = (char*) "gid hidden from open proc/pid";
+        type = (char*) "gid hidden from open proc/pid/status";
     }
     else if (gid_from_proc != gid_detected)
     {
         type = (char*) "gid_from_proc != gid_detected";
+    }
+    else if (statproc_ret == -1)
+    {
+        type = (char*) "gid hidden from open proc/pid";
+    }
+    else if (gid_from_statproc != gid_detected)
+    {
+        type = (char*) "gid_from_statproc != gid_detected";
     }
     else if (gid_detected != actual_gid)
     {
@@ -513,8 +566,8 @@ static inline char* CheckRootkitProcessesGID(int exist_in_proc_ret,
     /* I am too lazy to include a portable POSIX asprintf x) */
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wimplicit-function-declaration"
-    if (asprintf(&rootkit_msg_detection, "type: %s - extra info: exist_in_proc_ret: %d, exist_in_proc: %d, proc_ret: %d, gid_from_proc: %u, gid_detected: %u, actual_gid: %u, last_gid: %u",
-                 type, exist_in_proc_ret, exist_in_proc, proc_ret, gid_from_proc, gid_detected, actual_gid, last_gid) == -1)
+    if (asprintf(&rootkit_msg_detection, "type: %s - extra info: exist_in_proc_ret: %d, exist_in_proc: %d, proc_ret: %d, gid_from_proc: %u, statproc_ret: %d, gid_from_statproc: %u, gid_detected: %u, actual_gid: %u, last_gid: %u",
+                 type, exist_in_proc_ret, exist_in_proc, proc_ret, gid_from_proc, statproc_ret, gid_from_statproc, gid_detected, actual_gid, last_gid) == -1)
     {
         return NULL;
     }
@@ -528,17 +581,23 @@ void _Parent(pid_t child_pid, int fd_child, int fd_parent, THD_DAT_t* th_dat)
     ssize_t write_ret = 0;
     ssize_t read_ret = 0;
     int proc_ret = 0;
+    int statproc_ret = 0;
     unsigned int gid_detected = 0;
     unsigned int last_gid = 0;
     unsigned int actual_gid = 0;
     int read_state = 0;
+    char procfs_status_file_name[PATH_MAX];
     char procfs_childpid_dir_name[PATH_MAX];
     unsigned int gid_from_proc = 0;
+    unsigned int gid_from_statproc = 0;
     char* rootkit_msg_detection;
     unsigned int i = 0;
     char pid_string[PATH_MAX];
     int exist_in_proc;
     int exist_in_proc_ret;
+
+    memset(procfs_status_file_name, 0, sizeof(procfs_status_file_name));
+    sprintf(procfs_status_file_name, "/proc/%d/status", child_pid);
 
     memset(procfs_childpid_dir_name, 0, sizeof(procfs_childpid_dir_name));
     sprintf(procfs_childpid_dir_name, "/proc/%d", child_pid);
@@ -554,7 +613,9 @@ void _Parent(pid_t child_pid, int fd_child, int fd_parent, THD_DAT_t* th_dat)
         last_gid = gid_detected;
         read_ret = read(fd_child, &gid_detected, sizeof(gid_detected));
         gid_from_proc = 0;
-        proc_ret = GetGIDFromPID(&gid_from_proc, procfs_childpid_dir_name);
+        proc_ret = GetGIDFromPID(&gid_from_proc, procfs_status_file_name);
+        gid_from_statproc = 0;
+        statproc_ret = GetGIDFromStatProcPID(&gid_from_statproc, procfs_childpid_dir_name);
         exist_in_proc = 0;
         exist_in_proc_ret = ExistStartNumericInDir((char*)"/proc/", pid_string, &exist_in_proc);
 
@@ -570,7 +631,7 @@ void _Parent(pid_t child_pid, int fd_child, int fd_parent, THD_DAT_t* th_dat)
             break;
         }
 
-        rootkit_msg_detection = CheckRootkitProcessesGID(exist_in_proc_ret, exist_in_proc, proc_ret, gid_from_proc, gid_detected, actual_gid, last_gid);
+        rootkit_msg_detection = CheckRootkitProcessesGID(exist_in_proc_ret, exist_in_proc, proc_ret, gid_from_proc, statproc_ret, gid_from_statproc, gid_detected, actual_gid, last_gid);
         if (rootkit_msg_detection != NULL)
         {
             RootkitDetected((char*)"BruteForceGIDProcesses", rootkit_msg_detection, th_dat);
