@@ -187,7 +187,7 @@ Please, I need your help to mantain this list!! (create an issue with info)
 - vlany: Linux LD_PRELOAD rootkit (x86 and x86_64 architectures). https://github.com/mempodippy/vlany
 - reptile: LKM Linux rootkit. https://github.com/f0rb1dd3n/Reptile
 - jynx2: LD_PRELOAD userland rootkit based on the original JynxKi. https://github.com/chokepoint/Jynx2
-- JynxKit: LD_PRELOAD userland rootkit for Linux. https://github.com/chokepoint/jynxkit
+- jynxkit: LD_PRELOAD userland rootkit for Linux. https://github.com/chokepoint/jynxkit
 
 # Referenced by
 
