@@ -203,3 +203,7 @@ Please, I need your help to mantain this list!! (create an issue with info)
 # Referenced by
 
 empty
+
+# Credits
+
+Main Developer from 2013: David Reguera Garcia aka Dreg dreg@fr33project.org https://github.com/David-Reguera-Garcia-Dreg
