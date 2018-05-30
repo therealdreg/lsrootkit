@@ -185,6 +185,7 @@ Please, I need your help to mantain this list!! (create an issue with info)
 
 - enyelkm: LKM rootkit for Linux x86 with the 2.6 kernel. https://github.com/David-Reguera-Garcia-Dreg/enyelkm
 - vlany: Linux LD_PRELOAD rootkit (x86 and x86_64 architectures). https://github.com/mempodippy/vlany
+ - detected via: crash of the process & setgid safe-guard.
 - reptile: LKM Linux rootkit. https://github.com/f0rb1dd3n/Reptile
 - jynx2: LD_PRELOAD userland rootkit based on the original JynxKi. https://github.com/chokepoint/Jynx2
 - jynxkit: LD_PRELOAD userland rootkit for Linux. https://github.com/chokepoint/jynxkit
