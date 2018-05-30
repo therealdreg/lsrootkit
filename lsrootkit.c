@@ -48,6 +48,8 @@ SOFTWARE.
 
 #include <argp.h>
 
+#include <sys/time.h>
+
 #define PROC_GID_BYTES 1000
 #define LSROOT_TMP_TEMPLATE "/lsroot.XXXXXX"
 #define NUM_THREADS 16 /* MUST BE POWER OF 2 */
@@ -66,7 +68,7 @@ SOFTWARE.
 #define _PCRESET "\x1B[0m"
 
 #define DERROR_MSG(...) fprintf(stderr, _PCRED " [ERROR!!] " _PCRESET __VA_ARGS__ );
-#define DWARNING_MSG(...) fprintf(stderr, _PCYEL " [Warning] " _PCRESET __VA_ARGS__ );
+#define DWARNING_MSG(...) fprintf(stdout, _PCYEL " [Warning] " _PCRESET __VA_ARGS__ );
 #define DOK_MSG(...) fprintf(stdout, _PCGRN " [ok] " _PCRESET __VA_ARGS__ );
 #define DINFO_MSG(...) fprintf(stdout, _PCCYN " [info] " _PCRESET __VA_ARGS__ );
 #define DDETECTED_MSG(...) fprintf(stdout, _PCRED " [rootkit_detected!!] " _PCRESET __VA_ARGS__ );
@@ -391,18 +393,38 @@ static inline char* CheckRootkitFilesGID(int chown_ret, int stat_ret, int exist_
     return rootkit_msg_detection;
 }
 
-static inline void ShowEachDisplay(unsigned int* cnt, char* tag, unsigned int actual_gid, unsigned int last_gid)
+static inline void ShowEachDisplay(unsigned int* cnt, unsigned int* remain, struct timeval* tv1, char* tag, unsigned int actual_gid, unsigned int last_gid)
 {
     if ((*cnt % EACH_DISPLAY) == 0)
     {
-        DINFO_MSG("t[%llu] - %s " _PCCYN  "%u" _PCRESET "/" _PCRED "%u" _PCRESET " remain: " _PCGRN "%u" _PCRESET " - The complete analysis has taken: %s\n",
+        double estimated = 0;
+        struct timeval tv2;
+        unsigned int last_remain;
+
+        last_remain = *remain;
+
+        *remain = last_gid - actual_gid;
+
+        gettimeofday(&tv2, NULL);
+
+        if ((last_remain > 0) && ((last_remain - *remain) > 0))
+        {
+            estimated = (double)(tv2.tv_usec - tv1->tv_usec) / 1000000 + (double)(tv2.tv_sec - tv1->tv_sec);
+            estimated = (double)(((((double)last_remain / (double)(last_remain - *remain)) * estimated) / 60) / 60);
+        }
+
+        DINFO_MSG("t[%llu] - %s " _PCCYN  "%u" _PCRESET "/" _PCRED "%u" _PCRESET " remain: " _PCGRN "%u" _PCRESET " - aprox remain hours: %.2f %s\n",
                   (unsigned long long) pthread_self(),
                   tag,
                   actual_gid,
                   last_gid,
-                  last_gid - actual_gid,
-                  SPEED_TEST);
+                  *remain,
+                  estimated,
+                  estimated == 0 ? "calculating... be patient" : " ");
+
+        gettimeofday(tv1, NULL);
     }
+
     *cnt += 1;
 }
 
@@ -435,6 +457,8 @@ void* BruteForceGIDFiles(void* arg)
     int exist_file_ret;
     int exist_in_tmp;
     char file_name_ext[PATH_MAX];
+    struct timeval tv1;
+    unsigned int remain = 0;
 
     my_uid = getuid();
 
@@ -452,6 +476,7 @@ void* BruteForceGIDFiles(void* arg)
 
     fclose(fopen(full_path, "wb+"));
 
+    gettimeofday(&tv1, NULL);
     actual_gid = th_dat->first_gid;
     do
     {
@@ -479,7 +504,7 @@ void* BruteForceGIDFiles(void* arg)
 
         if (th_dat->arguments->disable_each_display == 0)
         {
-            ShowEachDisplay(&i, (char*) "BruteForceGIDFiles", actual_gid, th_dat->last_gid);
+            ShowEachDisplay(&i, &remain, &tv1, (char*) "BruteForceGIDFiles", actual_gid, th_dat->last_gid);
         }
     } while (actual_gid++ != th_dat->last_gid);
 
@@ -566,6 +591,8 @@ void _Parent(pid_t child_pid, int fd_child, int fd_parent, THD_DAT_t* th_dat)
     char pid_string[PATH_MAX];
     int exist_in_proc;
     int exist_in_proc_ret;
+    unsigned int remain = 0;
+    struct timeval tv1;
 
     memset(procfs_status_file_name, 0, sizeof(procfs_status_file_name));
     sprintf(procfs_status_file_name, "/proc/%d/status", child_pid);
@@ -574,7 +601,7 @@ void _Parent(pid_t child_pid, int fd_child, int fd_parent, THD_DAT_t* th_dat)
     sprintf(pid_string, "%d", child_pid);
 
     read_state = 1;
-
+    gettimeofday(&tv1, NULL);
     actual_gid = th_dat->first_gid;
     do
     {
@@ -609,7 +636,7 @@ void _Parent(pid_t child_pid, int fd_child, int fd_parent, THD_DAT_t* th_dat)
 
         if (th_dat->arguments->disable_each_display == 0)
         {
-            ShowEachDisplay(&i, (char*) "BruteForceGIDProcesses", actual_gid, th_dat->last_gid);
+            ShowEachDisplay(&i, &remain, &tv1, (char*) "BruteForceGIDProcesses", actual_gid, th_dat->last_gid);
         }
 
     } while (actual_gid++ != th_dat->last_gid);
@@ -906,6 +933,9 @@ int mainw(struct arguments* arguments)
     int detected = 0;
     pthread_mutex_t mutex;
     THREAD_FUNC_t anal_funcs[2];
+    char str_date[256];
+    time_t rawtime;
+    struct tm* timeinfo;
 
     pthread_mutex_init(&mutex, NULL);
 
@@ -973,6 +1003,12 @@ int mainw(struct arguments* arguments)
 
             DINFO_MSG("Static info:\n\tNumber of threads: %d\n\tEach display msg interval: %d\n\tGID range: 1 - %llu\n\tMax bytes reserved to found GID entry in /proc/pid/status: %u \n\n", NUM_THREADS, EACH_DISPLAY, MAX_VALUE(gid_t), PROC_GID_BYTES);
 
+            time(&rawtime);
+            timeinfo = localtime(&rawtime);
+            memset(str_date, 0, sizeof(str_date));
+            strftime(str_date, sizeof(str_date), "%c", timeinfo);
+            DINFO_MSG("Start analysis date: %s\n\n", str_date);
+
             for (t = 0; t < NUM_THREADS; t++)
             {
                 th_dat[t].arguments = arguments;
@@ -1037,6 +1073,13 @@ int mainw(struct arguments* arguments)
             fclose(file_report);
 
             pthread_mutex_destroy(&mutex);
+
+            DINFO_MSG("Start analysis date: %s\n", str_date);
+            time(&rawtime);
+            timeinfo = localtime(&rawtime);
+            memset(str_date, 0, sizeof(str_date));
+            strftime(str_date, sizeof(str_date), "%c", timeinfo);
+            DINFO_MSG("End analysis date: %s\n", str_date);
         }
     }
     else
