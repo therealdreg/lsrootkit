@@ -206,4 +206,4 @@ empty
 
 # Credits
 
-* **Main Developer from 2013**: David Reguera Garcia aka Dreg dreg@fr33project.org https://github.com/David-Reguera-Garcia-Dreg
+* **Main Developer from 2013**: David Reguera Garcia aka Dreg dreg@fr33project.org http://www.fr33project.org https://github.com/David-Reguera-Garcia-Dreg
