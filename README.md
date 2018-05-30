@@ -24,15 +24,14 @@ Also vlany tries avoid GID bruteforcing in processes but lsrootkit can detect th
 
 # Features
 
-Processes: Full GIDs process occupation (processes GID bruteforcing)
-
-Files: Full GIDs file occupation (files GID bruteforcing)
-
 The idea is very simple: a lot of rootkits uses a MAGIC GID (a random GID generated) to hide processes and files. This tool find rootkits bruteforcing all GIDs possible in the system. 
+
+* **Processes**: Full GIDs process occupation (processes GID bruteforcing)
+* **Files**: Full GIDs file occupation (files GID bruteforcing)
 
 It also can detect some rootkits safe-guards and strange things in the hooked code. 
 
-lsrootkit needs run as root or with caps for bruteforce: setgid & chown.
+lsrootkit needs run **as root** or **with caps** for bruteforce: stat, chown, setgid & access to /proc
 
 **Warning: each analysis-feature can take: 48 hours in a QUADCORE CPU 3100.000 MHz (NO SSD).**
 
