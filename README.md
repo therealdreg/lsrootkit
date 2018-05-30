@@ -31,7 +31,7 @@ The idea is very simple: a lot of rootkits uses a MAGIC GID (a random GID genera
 
 It also can detect some rootkits safe-guards and strange things in the hooked code. 
 
-lsrootkit needs run **as root** or **with caps** for bruteforce: stat, chown, setgid & access to /proc
+lsrootkit needs run **as root** or **with caps** for bruteforce: **stat, chown, setgid & access to /proc**
 
 **Warning: each analysis-feature can take: 48 hours in a QUADCORE CPU 3100.000 MHz (NO SSD).**
 
