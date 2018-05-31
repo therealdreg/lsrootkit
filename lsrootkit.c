@@ -48,6 +48,10 @@ SOFTWARE.
 
 #include <argp.h>
 
+#include <sys/time.h>
+
+#include <signal.h>
+
 #define PROC_GID_BYTES 1000
 #define LSROOT_TMP_TEMPLATE "/lsroot.XXXXXX"
 #define NUM_THREADS 16 /* MUST BE POWER OF 2 */
@@ -55,6 +59,7 @@ SOFTWARE.
 #define MAX_VALUE(a) (((unsigned long long)1 << (sizeof(a) * CHAR_BIT)) - 1)
 #define MYARRAYSIZE(a) (sizeof(a) / sizeof(*(a)))
 #define SPEED_TEST "48 hours in a QUADCORE CPU 3100.000 MHz (NO SSD)"
+
 
 #define _PCRED   "\x1B[31m"
 #define _PCGRN   "\x1B[32m"
@@ -65,12 +70,15 @@ SOFTWARE.
 #define _PCWHT   "\x1B[37m"
 #define _PCRESET "\x1B[0m"
 
-#define DERROR_MSG(...) fprintf(stderr, _PCRED " [ERROR!!] " _PCRESET __VA_ARGS__ );
-#define DWARNING_MSG(...) fprintf(stderr, _PCYEL " [Warning] " _PCRESET __VA_ARGS__ );
-#define DOK_MSG(...) fprintf(stdout, _PCGRN " [ok] " _PCRESET __VA_ARGS__ );
-#define DINFO_MSG(...) fprintf(stdout, _PCCYN " [info] " _PCRESET __VA_ARGS__ );
-#define DDETECTED_MSG(...) fprintf(stdout, _PCRED " [rootkit_detected!!] " _PCRESET __VA_ARGS__ );
-#define DNODETECTED_MSG(...) fprintf(stdout, _PCBLU " [NO_rootkits_detected] " _PCRESET __VA_ARGS__ );
+int disable_colors = 0;
+
+#define DPRINT_MSG(oustream, colour, tag, ...) if (disable_colors == 0) { fprintf(oustream, colour tag _PCRESET __VA_ARGS__ ); } else { fprintf(oustream, tag __VA_ARGS__ ); }
+#define DERROR_MSG(...)  DPRINT_MSG(stdout, _PCRED,  " [ERROR!!] ", __VA_ARGS__) //  fprintf(stderr, _PCRED " [ERROR!!] " _PCRESET __VA_ARGS__ );
+#define DWARNING_MSG(...) DPRINT_MSG(stdout, _PCYEL,  " [Warning] ", __VA_ARGS__) // fprintf(stdout, _PCYEL " [Warning] " _PCRESET __VA_ARGS__ );
+#define DOK_MSG(...) DPRINT_MSG(stdout, _PCGRN,  " [ok] ", __VA_ARGS__) // fprintf(stdout, _PCGRN " [ok] " _PCRESET __VA_ARGS__ );
+#define DINFO_MSG(...) DPRINT_MSG(stdout, _PCCYN,  " [info] ", __VA_ARGS__) // fprintf(stdout, _PCCYN " [info] " _PCRESET __VA_ARGS__ );
+#define DDETECTED_MSG(...) DPRINT_MSG(stdout, _PCRED,  " [rootkit_detected!!] ", __VA_ARGS__) // fprintf(stdout, _PCRED " [rootkit_detected!!] " _PCRESET __VA_ARGS__ );
+#define DNODETECTED_MSG(...) DPRINT_MSG(stdout, _PCBLU,  " [NO_rootkits_detected] ", __VA_ARGS__) // fprintf(stdout, _PCBLU " [NO_rootkits_detected] " _PCRESET __VA_ARGS__ );
 #define DRAW_MSG(...) fprintf(stdout, __VA_ARGS__ );
 
 struct arguments
@@ -80,6 +88,8 @@ struct arguments
     int disable_each_display;
     int only_processes_gid;
     int only_files_gid;
+    int only_processes_kill;
+    int disable_colors;
 };
 
 typedef struct THS_DAT_s
@@ -407,18 +417,42 @@ static inline char* CheckRootkitFilesGID(int chown_ret, int stat_ret, int exist_
     return rootkit_msg_detection;
 }
 
-static inline void ShowEachDisplay(unsigned int* cnt, char* tag, unsigned int actual_gid, unsigned int last_gid)
+static inline void ShowEachDisplay(unsigned int* cnt, unsigned int* remain, struct timeval* tv1, char* tag, unsigned int actual_gid, unsigned int last_gid)
 {
     if ((*cnt % EACH_DISPLAY) == 0)
     {
-        DINFO_MSG("t[%llu] - %s " _PCCYN  "%u" _PCRESET "/" _PCRED "%u" _PCRESET " remain: " _PCGRN "%u" _PCRESET " - The complete analysis has taken: %s\n",
+        double estimated = 0;
+        struct timeval tv2;
+        unsigned int last_remain;
+
+        last_remain = *remain;
+
+        *remain = last_gid - actual_gid;
+
+        gettimeofday(&tv2, NULL);
+        if ((last_remain > 0) && ((last_remain - *remain) > 0))
+        {
+            estimated = (double)(tv2.tv_usec - tv1->tv_usec) / 1000000 + (double)(tv2.tv_sec - tv1->tv_sec);
+            estimated = (double)(((((double)last_remain / (double)(last_remain - *remain)) * estimated) / 60) / 60);
+        }
+        gettimeofday(tv1, NULL);
+
+        DINFO_MSG("t[%llu] - %s %s%u%s/%s%u%s remain: %s%u%s - aprox remain hours: %.2f %s\n",
                   (unsigned long long) pthread_self(),
                   tag,
+                  disable_colors == 0 ? _PCCYN : "",
                   actual_gid,
+                  disable_colors == 0 ? _PCRESET : "",
+                  disable_colors == 0 ? _PCRED : "",
                   last_gid,
-                  last_gid - actual_gid,
-                  SPEED_TEST);
+                  disable_colors == 0 ? _PCRESET : "",
+                  disable_colors == 0 ? _PCGRN : "",
+                  *remain,
+                  disable_colors == 0 ? _PCRESET : "",
+                  estimated,
+                  estimated == 0 ? "calculating... be patient" : " ");
     }
+
     *cnt += 1;
 }
 
@@ -451,6 +485,8 @@ void* BruteForceGIDFiles(void* arg)
     int exist_file_ret;
     int exist_in_tmp;
     char file_name_ext[PATH_MAX];
+    struct timeval tv1;
+    unsigned int remain = 0;
 
     my_uid = getuid();
 
@@ -468,6 +504,7 @@ void* BruteForceGIDFiles(void* arg)
 
     fclose(fopen(full_path, "wb+"));
 
+    gettimeofday(&tv1, NULL);
     actual_gid = th_dat->first_gid;
     do
     {
@@ -495,7 +532,7 @@ void* BruteForceGIDFiles(void* arg)
 
         if (th_dat->arguments->disable_each_display == 0)
         {
-            ShowEachDisplay(&i, (char*) "BruteForceGIDFiles", actual_gid, th_dat->last_gid);
+            ShowEachDisplay(&i, &remain, &tv1, (char*) "BruteForceGIDFiles", actual_gid, th_dat->last_gid);
         }
     } while (actual_gid++ != th_dat->last_gid);
 
@@ -595,6 +632,8 @@ void _Parent(pid_t child_pid, int fd_child, int fd_parent, THD_DAT_t* th_dat)
     char pid_string[PATH_MAX];
     int exist_in_proc;
     int exist_in_proc_ret;
+    unsigned int remain = 0;
+    struct timeval tv1;
 
     memset(procfs_status_file_name, 0, sizeof(procfs_status_file_name));
     sprintf(procfs_status_file_name, "/proc/%d/status", child_pid);
@@ -606,7 +645,7 @@ void _Parent(pid_t child_pid, int fd_child, int fd_parent, THD_DAT_t* th_dat)
     sprintf(pid_string, "%d", child_pid);
 
     read_state = 1;
-
+    gettimeofday(&tv1, NULL);
     actual_gid = th_dat->first_gid;
     do
     {
@@ -643,7 +682,7 @@ void _Parent(pid_t child_pid, int fd_child, int fd_parent, THD_DAT_t* th_dat)
 
         if (th_dat->arguments->disable_each_display == 0)
         {
-            ShowEachDisplay(&i, (char*) "BruteForceGIDProcesses", actual_gid, th_dat->last_gid);
+            ShowEachDisplay(&i, &remain, &tv1, (char*) "BruteForceGIDProcesses", actual_gid, th_dat->last_gid);
         }
 
     } while (actual_gid++ != th_dat->last_gid);
@@ -775,6 +814,71 @@ void* BruteForceGIDProcesses(void* arg)
     return NULL;
 }
 
+void* BruteForceKillProcesses(void* arg)
+{
+    THD_DAT_t* th_dat = (THD_DAT_t*)arg;
+    pid_t child_pid;
+    unsigned int actual_signal = 0;
+    char pid_string[PATH_MAX];
+    char detection_msg[PATH_MAX];
+    int exist = 0;
+    int exist_ret = 0;
+    unsigned int i = 0;
+    unsigned int remain = 0;
+    struct timeval tv1;
+
+    DOK_MSG("t[%llu] - BruteForceKillProcesses New thread! Signal range: %u - %u\n", (unsigned long long) pthread_self(), th_dat->first_gid, th_dat->last_gid);
+
+    child_pid = fork();
+    if (child_pid == 0)
+    {
+        while (1)
+        {
+            sleep(1);
+        }
+    }
+    else
+    {
+        gettimeofday(&tv1, NULL);
+
+        i = 0;
+        actual_signal = th_dat->first_gid;
+        remain = 0;
+        memset(pid_string, 0, sizeof(pid_string));
+        sprintf(pid_string, "%d", child_pid);
+        do
+        {
+            if ((actual_signal >= 1) && (actual_signal <= SIGUNUSED))
+            {
+                printf("t[%llu] - skipping signal: %d\n", (unsigned long long) pthread_self(), actual_signal);
+            }
+            else
+            {
+                kill(child_pid, actual_signal);
+                exist = 0;
+                exist_ret = 0;
+                exist_ret = ExistFileInDir((char*)"/proc", pid_string, &exist);
+                if ((exist_ret == -1) || (exist == 0))
+                {
+                    memset(detection_msg, 0, sizeof(detection_msg));
+                    sprintf(detection_msg, "process hidding via: kill signal: %u", actual_signal);
+                    RootkitDetected((char*)"BruteForceKillProcesses", detection_msg, th_dat);
+                    break;
+                }
+
+                if (th_dat->arguments->disable_each_display == 0)
+                {
+                    ShowEachDisplay(&i, &remain, &tv1, (char*) "BruteForceKillProcesses", actual_signal, th_dat->last_gid);
+                }
+            }
+        } while (actual_signal++ != th_dat->last_gid);
+
+        kill(child_pid, SIGKILL);
+    }
+
+    return NULL;
+}
+
 const char* argp_program_version = "lsrootkit beta0.1";
 const char* argp_program_bug_address = "dreg@fr33project.org";
 
@@ -790,8 +894,10 @@ enum CMD_OPT_e
     OPT_TMP_PATH,
     OPT_REPORT_PATH,
     OPT_DISABLE_EACH_DISPLAY,
+    OPT_DISABLE_COLORS,
     OPT_ONLY_PROCESSES_GID,
     OPT_ONLY_FILES_GID,
+    OPT_ONLY_PROCESSES_KILL,
 };
 
 #pragma GCC diagnostic push
@@ -807,13 +913,14 @@ static struct argp_option options[] =
         "Set new report path. it needs also the name. Example: --report-path=/root/analysis.txt"
     },
     { "disable-each-display", OPT_DISABLE_EACH_DISPLAY, 0, OPTION_ARG_OPTIONAL, "Disable each display messages" },
+    { "disable-colors", OPT_DISABLE_COLORS, 0, OPTION_ARG_OPTIONAL, "Disable colours in output" },
     { "only-gid-processes", OPT_ONLY_PROCESSES_GID, 0, OPTION_ARG_OPTIONAL, "Only bruteforce processes GID" },
     { "only-gid-files", OPT_ONLY_FILES_GID, 0, OPTION_ARG_OPTIONAL, "Only bruteforce files GID" },
+    { "only-kill-processes", OPT_ONLY_PROCESSES_KILL, 0, OPTION_ARG_OPTIONAL, "Only bruteforce processes Kill" },
 
     { 0 }
 };
 #pragma GCC diagnostic pop
-
 
 
 static error_t parse_opt(int key, char* arg, struct argp_state* state)
@@ -834,8 +941,16 @@ static error_t parse_opt(int key, char* arg, struct argp_state* state)
         arguments->disable_each_display = 1;
         break;
 
+    case OPT_DISABLE_COLORS:
+        arguments->disable_colors = 1;
+        break;
+
     case OPT_ONLY_PROCESSES_GID:
         arguments->only_processes_gid = 1;
+        break;
+
+    case OPT_ONLY_PROCESSES_KILL:
+        arguments->only_processes_kill = 1;
         break;
 
     case OPT_ONLY_FILES_GID:
@@ -863,8 +978,22 @@ int main(int argc, char* argv[])
 {
     struct arguments arguments;
 
+    memset(&arguments, 0, sizeof(arguments));
+
+    arguments.tmp_path = NULL;
+    arguments.report_path = NULL;
+    arguments.disable_each_display = 0;
+    arguments.only_processes_gid = 0;
+    arguments.only_files_gid = 0;
+    arguments.only_processes_kill = 0;
+    arguments.disable_colors = 0;
+
+    argp_parse(&argp, argc, argv, 0, 0, &arguments);
+
+    disable_colors = arguments.disable_colors;
+
     DRAW_MSG(" \n--\n"
-             _PCCYN " %s - Rootkit Detector for UNIX\n" _PCRESET
+             "%s%s - Rootkit Detector for UNIX\n%s"
              "-\n"
              "MIT LICENSE - Copyright(c) 2013\n"
              "by David Reguera Garcia aka Dreg - dreg@fr33project.org\n"
@@ -874,28 +1003,26 @@ int main(int argc, char* argv[])
              "For program help type: %s --help\n"
              "-\n"
              "Features:\n"
-             "\t - Processes: Full GIDs process occupation (processes GID bruteforcing)\n"
+             "\t - Processes:\n"
+             "\t\t - Full GIDs process occupation (processes GID bruteforcing)\n"
+             "\t\t - Full Kill Signal process occupation (processes Kill bruteforcing)\n"
              "\t - Files: Full GIDs file occupation (files GID bruteforcing)\n"
              "\n"
-             _PCRED " Warning!!: each analysis-feature can take: %s.\n " _PCRESET
+             "%sWarning!!: each analysis-feature can take: %s.\n%s"
              "\n"
-             _PCYEL " Very Important: if lsrootkit process crash you can have a rootkit in the system with some bugs: memory leaks etc.\n " _PCRESET
+             "%sVery Important: if lsrootkit process crash you can have a rootkit in the system with some bugs: memory leaks etc.\n%s"
              "--\n\n"
              ,
+             disable_colors == 0 ? _PCCYN : "",
              argp_program_version,
+             disable_colors == 0 ? _PCRESET : "",
              argv[0],
-             SPEED_TEST
+             disable_colors == 0 ? _PCRED : "",
+             SPEED_TEST,
+             disable_colors == 0 ? _PCRESET : "",
+             disable_colors == 0 ? _PCYEL : "",
+             disable_colors == 0 ? _PCRESET : ""
             );
-
-    memset(&arguments, 0, sizeof(arguments));
-
-    arguments.tmp_path = NULL;
-    arguments.report_path = NULL;
-    arguments.disable_each_display = 0;
-    arguments.only_processes_gid = 0;
-    arguments.only_files_gid = 0;
-
-    argp_parse(&argp, argc, argv, 0, 0, &arguments);
 
     return mainw(&arguments);
 }
@@ -939,13 +1066,15 @@ int mainw(struct arguments* arguments)
     FILE* file_report = NULL;
     int detected = 0;
     pthread_mutex_t mutex;
-    THREAD_FUNC_t anal_funcs[2];
+    THREAD_FUNC_t anal_funcs[4];
+    char str_date[256];
+    time_t rawtime;
+    struct tm* timeinfo;
 
     pthread_mutex_init(&mutex, NULL);
 
     memset(th_dat, 0, sizeof(th_dat));
     memset(report_path, 0, sizeof(report_path));
-    memset(anal_funcs, 0, sizeof(anal_funcs));
 
     if (arguments->tmp_path == NULL)
     {
@@ -1007,6 +1136,12 @@ int mainw(struct arguments* arguments)
 
             DINFO_MSG("Static info:\n\tNumber of threads: %d\n\tEach display msg interval: %d\n\tGID range: 1 - %llu\n\tMax bytes reserved to found GID entry in /proc/pid/status: %u \n\n", NUM_THREADS, EACH_DISPLAY, MAX_VALUE(gid_t), PROC_GID_BYTES);
 
+            time(&rawtime);
+            timeinfo = localtime(&rawtime);
+            memset(str_date, 0, sizeof(str_date));
+            strftime(str_date, sizeof(str_date), "%c", timeinfo);
+            DINFO_MSG("Start analysis date: %s\n\n", str_date);
+
             for (t = 0; t < NUM_THREADS; t++)
             {
                 th_dat[t].arguments = arguments;
@@ -1020,24 +1155,30 @@ int mainw(struct arguments* arguments)
                 {
                     th_dat[t].last_gid = MAX_VALUE(gid_t);
                 }
-                DINFO_MSG("Thread: %d, GID range: %u - %u\n", t + 1, th_dat[t].first_gid, th_dat[t].last_gid);
+                DINFO_MSG("Thread: %d, GID/Signal range: %u - %u\n", t + 1, th_dat[t].first_gid, th_dat[t].last_gid);
             }
 
             puts("\n");
 
             memset(anal_funcs, 0, sizeof(anal_funcs));
+            t = 0;
             if (arguments->only_files_gid)
             {
-                anal_funcs[0] = BruteForceGIDFiles;
+                anal_funcs[t] = BruteForceGIDFiles;
             }
             else if (arguments->only_processes_gid)
             {
-                anal_funcs[0] = BruteForceGIDProcesses;
+                anal_funcs[t] = BruteForceGIDProcesses;
+            }
+            else if (arguments->only_processes_kill)
+            {
+                anal_funcs[t] = BruteForceKillProcesses;
             }
             else
             {
-                anal_funcs[0] = BruteForceGIDProcesses;
-                anal_funcs[1] = BruteForceGIDFiles;
+                anal_funcs[t++] = BruteForceGIDProcesses;
+                anal_funcs[t++] = BruteForceGIDFiles;
+                anal_funcs[t++] = BruteForceKillProcesses;
             }
 
             detected = 0;
@@ -1071,6 +1212,13 @@ int mainw(struct arguments* arguments)
             fclose(file_report);
 
             pthread_mutex_destroy(&mutex);
+
+            DINFO_MSG("Start analysis date: %s\n", str_date);
+            time(&rawtime);
+            timeinfo = localtime(&rawtime);
+            memset(str_date, 0, sizeof(str_date));
+            strftime(str_date, sizeof(str_date), "%c", timeinfo);
+            DINFO_MSG("End analysis date: %s\n", str_date);
         }
     }
     else

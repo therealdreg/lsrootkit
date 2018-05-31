@@ -24,19 +24,22 @@ Also vlany tries avoid GID bruteforcing in processes but lsrootkit can detect th
 
 # Features
 
-Processes: Full GIDs process occupation (processes GID bruteforcing)
-
-Files: Full GIDs file occupation (files GID bruteforcing)
-
 The idea is very simple: a lot of rootkits uses a MAGIC GID (a random GID generated) to hide processes and files. This tool find rootkits bruteforcing all GIDs possible in the system. 
+
+* **Processes**: Full GIDs process occupation (processes GID bruteforcing)
+* **Files**: Full GIDs file occupation (files GID bruteforcing)
 
 It also can detect some rootkits safe-guards and strange things in the hooked code. 
 
-lsrootkit needs run as root or with caps for bruteforce: setgid & chown.
+Also some rootkits uses a MAGIC (kill) SIGNAL (a random SIGNAL generated) to hide processes. This tool can bruteforcing all Signals possible in the system:
+
+* **Processes**: Kill Signal process occupation (processes Kill bruteforcing)
+
+lsrootkit needs run **as root** or **with caps** for bruteforce: **stat, chown, setgid & access to /proc**
 
 **Warning: each analysis-feature can take: 48 hours in a QUADCORE CPU 3100.000 MHz (NO SSD).**
 
-## For processes
+## For processes (GID)
 
 1) It creates a PARENT and a CHILD processes.
 2) The CHILD in a loop from 0 to MAX_GID_POSSIBLE calls to: setgid(ACTUAL_GID).
@@ -95,7 +98,7 @@ root      2646 23015307 lsrootkit
 
 You should see 16 processes changing their GID very fast in each ps.
 
-## For files
+## For files (GID)
 
 1) It creates a loop from 0 to MAX_GID_POSSIBLE calling to: chown(ACTUAL_GID).
 2) If the GID returned from stat() is different from ACTUAL_GID (used in chown(ACTUAL_GID)): Alert! this is impossible, can be a rootkit doing strange things. 
@@ -154,22 +157,14 @@ You should see 16 files changing their GID very fast in each ls -l
 
 
 ```
- lsrootkit beta0.1 - Rootkit Detector for UNIX
--
-MIT LICENSE - Copyright(c) 2013
-by David Reguera Garcia aka Dreg - dreg@fr33project.org
-https://github.com/David-Reguera-Garcia-Dreg
-http://www.fr33project.org
-- 
-
-For program help type: ./main --help
-
-         
+Usage: lsrootkit [OPTION...]
 lsrootkit options (all analysis are ON by default):
 
+      --disable-colors       Disable colours in output
       --disable-each-display Disable each display messages
       --only-gid-files       Only bruteforce files GID
       --only-gid-processes   Only bruteforce processes GID
+      --only-kill-processes  Only bruteforce processes Kill
       --report-path[=FILE]   Set new report path. it needs also the name.
                              Example: --report-path=/root/analysis.txt
       --tmp-path[=FILE]      Set new temp path dir. Example:
@@ -184,10 +179,30 @@ lsrootkit options (all analysis are ON by default):
 Please, I need your help to mantain this list!! (create an issue with info)
 
 - enyelkm: LKM rootkit for Linux x86 with the 2.6 kernel. https://github.com/David-Reguera-Garcia-Dreg/enyelkm
+  - detected via: normal detection.
+  - reported by: Dreg
 - vlany: Linux LD_PRELOAD rootkit (x86 and x86_64 architectures). https://github.com/mempodippy/vlany
+  - detected via: crash of the process & setgid safe-guard.
+  ![crashaswayofdetection](https://github.com/David-Reguera-Garcia-Dreg/lsrootkit/blob/master/crashaswayofdetection.png)
+  - reported by: Dreg
 - reptile: LKM Linux rootkit. https://github.com/f0rb1dd3n/Reptile
+  - detected via: normal detection.
+  - reported by: Dreg
 - jynx2: LD_PRELOAD userland rootkit based on the original JynxKi. https://github.com/chokepoint/Jynx2
+  - detected via: normal detection.
+  - reported by: Dreg
+- jynxkit: LD_PRELOAD userland rootkit for Linux. https://github.com/chokepoint/jynxkit
+  - detected via: normal detection.
+  - reported by: Dreg
+  
+# TODO
+
+* kill bruteforcing child
 
 # Referenced by
 
 empty
+
+# Credits
+
+* **Main Developer from 2013**: David Reguera Garcia aka Dreg dreg@fr33project.org http://www.fr33project.org https://github.com/David-Reguera-Garcia-Dreg
