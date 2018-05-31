@@ -153,19 +153,10 @@ You should see 16 files changing their GID very fast in each ls -l
 
 
 ```
- lsrootkit beta0.1 - Rootkit Detector for UNIX
--
-MIT LICENSE - Copyright(c) 2013
-by David Reguera Garcia aka Dreg - dreg@fr33project.org
-https://github.com/David-Reguera-Garcia-Dreg
-http://www.fr33project.org
-- 
-
-For program help type: ./main --help
-
-         
+Usage: lsrootkit [OPTION...]
 lsrootkit options (all analysis are ON by default):
 
+      --disable-colors       Disable colours in output
       --disable-each-display Disable each display messages
       --only-gid-files       Only bruteforce files GID
       --only-gid-processes   Only bruteforce processes GID
