@@ -857,7 +857,7 @@ void* BruteForceKillProcesses(void* arg)
                 kill(child_pid, actual_signal);
                 exist = 0;
                 exist_ret = 0;
-                exist_ret = ExistFileInDir((char*)"/proc", pid_string, &exist);
+                exist_ret = ExistStartNumericInDir((char*)"/proc", pid_string, &exist);
                 if ((exist_ret == -1) || (exist == 0))
                 {
                     memset(detection_msg, 0, sizeof(detection_msg));
