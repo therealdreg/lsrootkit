@@ -16,7 +16,7 @@ Execute: ./lsrootkit
 
 Real scenario example: vlany rootkit crash the process because their readdir hook: https://github.com/mempodippy/vlany
 
-![vlanycrash](https://github.com/David-Reguera-Garcia-Dreg/lsrootkit/blob/master/vlanybrute.png)
+![vlanycrash](https://github.com/David-Reguera-Garcia-Dreg/lsrootkit/blob/images/vlanybrute.png)
 
 This is very funny because vlany is designed to avoid this kind of tool. It tries avoid GID bruteforcing using xattrs in files instead of a MAGIC_GID. But the code in their readdir hook crash the process in 2-3 mins. This kind of crash can be interpreted like: there are something bad coded hooking me. 
 
@@ -189,7 +189,7 @@ Please, I need your help to mantain this list!! (create an issue with info)
   - reported by: Dreg
 - vlany: Linux LD_PRELOAD rootkit (x86 and x86_64 architectures). https://github.com/mempodippy/vlany
   - detected via: crash of the process & setgid safe-guard.
-  ![crashaswayofdetection](https://github.com/David-Reguera-Garcia-Dreg/lsrootkit/blob/master/crashaswayofdetection.png)
+  ![crashaswayofdetection](https://github.com/David-Reguera-Garcia-Dreg/lsrootkit/blob/images/crashaswayofdetection.png)
   - reported by: Dreg
 - reptile: LKM Linux rootkit. https://github.com/f0rb1dd3n/Reptile
   - detected via: normal detection.
