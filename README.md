@@ -31,11 +31,15 @@ The idea is very simple: a lot of rootkits uses a MAGIC GID (a random GID genera
 
 It also can detect some rootkits safe-guards and strange things in the hooked code. 
 
+Also some rootkits uses a MAGIC (kill) SIGNAL (a random SIGNAL generated) to hide processes. This tool can bruteforcing all Signals possible in the system:
+
+* **Processes**: Kill Signal process occupation (processes Kill bruteforcing)
+
 lsrootkit needs run **as root** or **with caps** for bruteforce: **stat, chown, setgid & access to /proc**
 
 **Warning: each analysis-feature can take: 48 hours in a QUADCORE CPU 3100.000 MHz (NO SSD).**
 
-## For processes
+## For processes (GID)
 
 1) It creates a PARENT and a CHILD processes.
 2) The CHILD in a loop from 0 to MAX_GID_POSSIBLE calls to: setgid(ACTUAL_GID).
@@ -94,7 +98,7 @@ root      2646 23015307 lsrootkit
 
 You should see 16 processes changing their GID very fast in each ps.
 
-## For files
+## For files (GID)
 
 1) It creates a loop from 0 to MAX_GID_POSSIBLE calling to: chown(ACTUAL_GID).
 2) If the GID returned from stat() is different from ACTUAL_GID (used in chown(ACTUAL_GID)): Alert! this is impossible, can be a rootkit doing strange things. 
