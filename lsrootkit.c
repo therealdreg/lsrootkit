@@ -50,6 +50,8 @@ SOFTWARE.
 
 #include <sys/time.h>
 
+#include <signal.h>
+
 #define PROC_GID_BYTES 1000
 #define LSROOT_TMP_TEMPLATE "/lsroot.XXXXXX"
 #define NUM_THREADS 16 /* MUST BE POWER OF 2 */
@@ -781,8 +783,64 @@ void* BruteForceGIDProcesses(void* arg)
 void* BruteForceKillProcesses(void* arg)
 {
     THD_DAT_t* th_dat = (THD_DAT_t*)arg;
+    pid_t child_pid;
+    unsigned int actual_signal = 0;
+    char pid_string[PATH_MAX];
+    char detection_msg[PATH_MAX];
+    int exist = 0;
+    int exist_ret = 0;
+    unsigned int i = 0;
+    unsigned int remain = 0;
+    struct timeval tv1;
 
     DOK_MSG("t[%llu] - BruteForceKillProcesses New thread! Signal range: %u - %u\n", (unsigned long long) pthread_self(), th_dat->first_gid, th_dat->last_gid);
+
+    child_pid = fork();
+    if (child_pid == 0)
+    {
+        while (1)
+        {
+            sleep(1);
+        }
+    }
+    else
+    {
+        gettimeofday(&tv1, NULL);
+
+        i = 0;
+        actual_signal = th_dat->first_gid;
+        remain = 0;
+        memset(pid_string, 0, sizeof(pid_string));
+        sprintf(pid_string, "%d", child_pid);
+        do
+        {
+            if ((actual_signal >= 1) && (actual_signal <= SIGUNUSED))
+            {
+                printf("t[%llu] - skipping signal: %d\n", (unsigned long long) pthread_self(), actual_signal);
+            }
+            else
+            {
+                kill(child_pid, actual_signal);
+                exist = 0;
+                exist_ret = 0;
+                exist_ret = ExistFileInDir((char*)"/proc", pid_string, &exist);
+                if ((exist_ret == -1) || (exist == 0))
+                {
+                    memset(detection_msg, 0, sizeof(detection_msg));
+                    sprintf(detection_msg, "process hidding via: kill signal: %u", actual_signal);
+                    RootkitDetected((char*)"BruteForceKillProcesses", detection_msg, th_dat);
+                    break;
+                }
+
+                if (th_dat->arguments->disable_each_display == 0)
+                {
+                    ShowEachDisplay(&i, &remain, &tv1, (char*) "BruteForceKillProcesses", actual_signal, th_dat->last_gid);
+                }
+            }
+        } while (actual_signal++ != th_dat->last_gid);
+
+        kill(child_pid, SIGKILL);
+    }
 
     return NULL;
 }
