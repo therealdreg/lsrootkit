@@ -58,6 +58,7 @@ SOFTWARE.
 #define MYARRAYSIZE(a) (sizeof(a) / sizeof(*(a)))
 #define SPEED_TEST "48 hours in a QUADCORE CPU 3100.000 MHz (NO SSD)"
 
+
 #define _PCRED   "\x1B[31m"
 #define _PCGRN   "\x1B[32m"
 #define _PCYEL   "\x1B[33m"
@@ -67,12 +68,15 @@ SOFTWARE.
 #define _PCWHT   "\x1B[37m"
 #define _PCRESET "\x1B[0m"
 
-#define DERROR_MSG(...) fprintf(stderr, _PCRED " [ERROR!!] " _PCRESET __VA_ARGS__ );
-#define DWARNING_MSG(...) fprintf(stdout, _PCYEL " [Warning] " _PCRESET __VA_ARGS__ );
-#define DOK_MSG(...) fprintf(stdout, _PCGRN " [ok] " _PCRESET __VA_ARGS__ );
-#define DINFO_MSG(...) fprintf(stdout, _PCCYN " [info] " _PCRESET __VA_ARGS__ );
-#define DDETECTED_MSG(...) fprintf(stdout, _PCRED " [rootkit_detected!!] " _PCRESET __VA_ARGS__ );
-#define DNODETECTED_MSG(...) fprintf(stdout, _PCBLU " [NO_rootkits_detected] " _PCRESET __VA_ARGS__ );
+int disable_colors = 0;
+
+#define DPRINT_MSG(oustream, colour, tag, ...) if (disable_colors == 0) { fprintf(oustream, colour tag _PCRESET __VA_ARGS__ ); } else { fprintf(oustream, tag __VA_ARGS__ ); }
+#define DERROR_MSG(...)  DPRINT_MSG(stdout, _PCRED,  " [ERROR!!] ", __VA_ARGS__) //  fprintf(stderr, _PCRED " [ERROR!!] " _PCRESET __VA_ARGS__ );
+#define DWARNING_MSG(...) DPRINT_MSG(stdout, _PCYEL,  " [Warning] ", __VA_ARGS__) // fprintf(stdout, _PCYEL " [Warning] " _PCRESET __VA_ARGS__ );
+#define DOK_MSG(...) DPRINT_MSG(stdout, _PCGRN,  " [ok] ", __VA_ARGS__) // fprintf(stdout, _PCGRN " [ok] " _PCRESET __VA_ARGS__ );
+#define DINFO_MSG(...) DPRINT_MSG(stdout, _PCCYN,  " [info] ", __VA_ARGS__) // fprintf(stdout, _PCCYN " [info] " _PCRESET __VA_ARGS__ );
+#define DDETECTED_MSG(...) DPRINT_MSG(stdout, _PCRED,  " [rootkit_detected!!] ", __VA_ARGS__) // fprintf(stdout, _PCRED " [rootkit_detected!!] " _PCRESET __VA_ARGS__ );
+#define DNODETECTED_MSG(...) DPRINT_MSG(stdout, _PCBLU,  " [NO_rootkits_detected] ", __VA_ARGS__) // fprintf(stdout, _PCBLU " [NO_rootkits_detected] " _PCRESET __VA_ARGS__ );
 #define DRAW_MSG(...) fprintf(stdout, __VA_ARGS__ );
 
 struct arguments
@@ -82,6 +86,7 @@ struct arguments
     int disable_each_display;
     int only_processes_gid;
     int only_files_gid;
+    int disable_colors;
 };
 
 typedef struct THS_DAT_s
@@ -406,23 +411,27 @@ static inline void ShowEachDisplay(unsigned int* cnt, unsigned int* remain, stru
         *remain = last_gid - actual_gid;
 
         gettimeofday(&tv2, NULL);
-
         if ((last_remain > 0) && ((last_remain - *remain) > 0))
         {
             estimated = (double)(tv2.tv_usec - tv1->tv_usec) / 1000000 + (double)(tv2.tv_sec - tv1->tv_sec);
             estimated = (double)(((((double)last_remain / (double)(last_remain - *remain)) * estimated) / 60) / 60);
         }
+        gettimeofday(tv1, NULL);
 
-        DINFO_MSG("t[%llu] - %s " _PCCYN  "%u" _PCRESET "/" _PCRED "%u" _PCRESET " remain: " _PCGRN "%u" _PCRESET " - aprox remain hours: %.2f %s\n",
+        DINFO_MSG("t[%llu] - %s %s%u%s/%s%u%s remain: %s%u%s - aprox remain hours: %.2f %s\n",
                   (unsigned long long) pthread_self(),
                   tag,
+                  disable_colors == 0 ? _PCCYN : "",
                   actual_gid,
+                  disable_colors == 0 ? _PCRESET : "",
+                  disable_colors == 0 ? _PCRED : "",
                   last_gid,
+                  disable_colors == 0 ? _PCRESET : "",
+                  disable_colors == 0 ? _PCGRN : "",
                   *remain,
+                  disable_colors == 0 ? _PCRESET : "",
                   estimated,
                   estimated == 0 ? "calculating... be patient" : " ");
-
-        gettimeofday(tv1, NULL);
     }
 
     *cnt += 1;
@@ -783,6 +792,7 @@ enum CMD_OPT_e
     OPT_TMP_PATH,
     OPT_REPORT_PATH,
     OPT_DISABLE_EACH_DISPLAY,
+    OPT_DISABLE_COLORS,
     OPT_ONLY_PROCESSES_GID,
     OPT_ONLY_FILES_GID,
 };
@@ -800,6 +810,7 @@ static struct argp_option options[] =
         "Set new report path. it needs also the name. Example: --report-path=/root/analysis.txt"
     },
     { "disable-each-display", OPT_DISABLE_EACH_DISPLAY, 0, OPTION_ARG_OPTIONAL, "Disable each display messages" },
+    { "disable-colors", OPT_DISABLE_COLORS, 0, OPTION_ARG_OPTIONAL, "Disable colours in output" },
     { "only-gid-processes", OPT_ONLY_PROCESSES_GID, 0, OPTION_ARG_OPTIONAL, "Only bruteforce processes GID" },
     { "only-gid-files", OPT_ONLY_FILES_GID, 0, OPTION_ARG_OPTIONAL, "Only bruteforce files GID" },
 
@@ -825,6 +836,10 @@ static error_t parse_opt(int key, char* arg, struct argp_state* state)
 
     case OPT_DISABLE_EACH_DISPLAY:
         arguments->disable_each_display = 1;
+        break;
+
+    case OPT_DISABLE_COLORS:
+        arguments->disable_colors = 1;
         break;
 
     case OPT_ONLY_PROCESSES_GID:
@@ -856,8 +871,20 @@ int main(int argc, char* argv[])
 {
     struct arguments arguments;
 
+    memset(&arguments, 0, sizeof(arguments));
+
+    arguments.tmp_path = NULL;
+    arguments.report_path = NULL;
+    arguments.disable_each_display = 0;
+    arguments.only_processes_gid = 0;
+    arguments.only_files_gid = 0;
+
+    argp_parse(&argp, argc, argv, 0, 0, &arguments);
+
+    disable_colors = arguments.disable_colors;
+
     DRAW_MSG(" \n--\n"
-             _PCCYN " %s - Rootkit Detector for UNIX\n" _PCRESET
+             "%s%s - Rootkit Detector for UNIX\n%s"
              "-\n"
              "MIT LICENSE - Copyright(c) 2013\n"
              "by David Reguera Garcia aka Dreg - dreg@fr33project.org\n"
@@ -870,25 +897,21 @@ int main(int argc, char* argv[])
              "\t - Processes: Full GIDs process occupation (processes GID bruteforcing)\n"
              "\t - Files: Full GIDs file occupation (files GID bruteforcing)\n"
              "\n"
-             _PCRED " Warning!!: each analysis-feature can take: %s.\n " _PCRESET
+             "%sWarning!!: each analysis-feature can take: %s.\n%s"
              "\n"
-             _PCYEL " Very Important: if lsrootkit process crash you can have a rootkit in the system with some bugs: memory leaks etc.\n " _PCRESET
+             "%sVery Important: if lsrootkit process crash you can have a rootkit in the system with some bugs: memory leaks etc.\n%s"
              "--\n\n"
              ,
+             disable_colors == 0 ? _PCCYN : "",
              argp_program_version,
+             disable_colors == 0 ? _PCRESET : "",
              argv[0],
-             SPEED_TEST
+             disable_colors == 0 ? _PCRED : "",
+             SPEED_TEST,
+             disable_colors == 0 ? _PCRESET : "",
+             disable_colors == 0 ? _PCYEL : "",
+             disable_colors == 0 ? _PCRESET : ""
             );
-
-    memset(&arguments, 0, sizeof(arguments));
-
-    arguments.tmp_path = NULL;
-    arguments.report_path = NULL;
-    arguments.disable_each_display = 0;
-    arguments.only_processes_gid = 0;
-    arguments.only_files_gid = 0;
-
-    argp_parse(&argp, argc, argv, 0, 0, &arguments);
 
     return mainw(&arguments);
 }
