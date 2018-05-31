@@ -86,6 +86,7 @@ struct arguments
     int disable_each_display;
     int only_processes_gid;
     int only_files_gid;
+    int only_processes_kill;
     int disable_colors;
 };
 
@@ -777,6 +778,15 @@ void* BruteForceGIDProcesses(void* arg)
     return NULL;
 }
 
+void* BruteForceKillProcesses(void* arg)
+{
+    THD_DAT_t* th_dat = (THD_DAT_t*)arg;
+
+    DOK_MSG("t[%llu] - BruteForceKillProcesses New thread! Signal range: %u - %u\n", (unsigned long long) pthread_self(), th_dat->first_gid, th_dat->last_gid);
+
+    return NULL;
+}
+
 const char* argp_program_version = "lsrootkit beta0.1";
 const char* argp_program_bug_address = "dreg@fr33project.org";
 
@@ -795,6 +805,7 @@ enum CMD_OPT_e
     OPT_DISABLE_COLORS,
     OPT_ONLY_PROCESSES_GID,
     OPT_ONLY_FILES_GID,
+    OPT_ONLY_PROCESSES_KILL,
 };
 
 #pragma GCC diagnostic push
@@ -813,11 +824,11 @@ static struct argp_option options[] =
     { "disable-colors", OPT_DISABLE_COLORS, 0, OPTION_ARG_OPTIONAL, "Disable colours in output" },
     { "only-gid-processes", OPT_ONLY_PROCESSES_GID, 0, OPTION_ARG_OPTIONAL, "Only bruteforce processes GID" },
     { "only-gid-files", OPT_ONLY_FILES_GID, 0, OPTION_ARG_OPTIONAL, "Only bruteforce files GID" },
+    { "only-kill-processes", OPT_ONLY_PROCESSES_KILL, 0, OPTION_ARG_OPTIONAL, "Only bruteforce processes Kill" },
 
     { 0 }
 };
 #pragma GCC diagnostic pop
-
 
 
 static error_t parse_opt(int key, char* arg, struct argp_state* state)
@@ -844,6 +855,10 @@ static error_t parse_opt(int key, char* arg, struct argp_state* state)
 
     case OPT_ONLY_PROCESSES_GID:
         arguments->only_processes_gid = 1;
+        break;
+
+    case OPT_ONLY_PROCESSES_KILL:
+        arguments->only_processes_kill = 1;
         break;
 
     case OPT_ONLY_FILES_GID:
@@ -878,6 +893,8 @@ int main(int argc, char* argv[])
     arguments.disable_each_display = 0;
     arguments.only_processes_gid = 0;
     arguments.only_files_gid = 0;
+    arguments.only_processes_kill = 0;
+    arguments.disable_colors = 0;
 
     argp_parse(&argp, argc, argv, 0, 0, &arguments);
 
@@ -894,7 +911,9 @@ int main(int argc, char* argv[])
              "For program help type: %s --help\n"
              "-\n"
              "Features:\n"
-             "\t - Processes: Full GIDs process occupation (processes GID bruteforcing)\n"
+             "\t - Processes:\n"
+             "\tFull GIDs process occupation (processes GID bruteforcing)\n"
+             "\tFull Kill Signal process occupation (processes Kill bruteforcing)\n"
              "\t - Files: Full GIDs file occupation (files GID bruteforcing)\n"
              "\n"
              "%sWarning!!: each analysis-feature can take: %s.\n%s"
@@ -955,7 +974,7 @@ int mainw(struct arguments* arguments)
     FILE* file_report = NULL;
     int detected = 0;
     pthread_mutex_t mutex;
-    THREAD_FUNC_t anal_funcs[2];
+    THREAD_FUNC_t anal_funcs[4];
     char str_date[256];
     time_t rawtime;
     struct tm* timeinfo;
@@ -964,7 +983,6 @@ int mainw(struct arguments* arguments)
 
     memset(th_dat, 0, sizeof(th_dat));
     memset(report_path, 0, sizeof(report_path));
-    memset(anal_funcs, 0, sizeof(anal_funcs));
 
     if (arguments->tmp_path == NULL)
     {
@@ -1045,24 +1063,30 @@ int mainw(struct arguments* arguments)
                 {
                     th_dat[t].last_gid = MAX_VALUE(gid_t);
                 }
-                DINFO_MSG("Thread: %d, GID range: %u - %u\n", t + 1, th_dat[t].first_gid, th_dat[t].last_gid);
+                DINFO_MSG("Thread: %d, GID/Signal range: %u - %u\n", t + 1, th_dat[t].first_gid, th_dat[t].last_gid);
             }
 
             puts("\n");
 
             memset(anal_funcs, 0, sizeof(anal_funcs));
+            t = 0;
             if (arguments->only_files_gid)
             {
-                anal_funcs[0] = BruteForceGIDFiles;
+                anal_funcs[t] = BruteForceGIDFiles;
             }
             else if (arguments->only_processes_gid)
             {
-                anal_funcs[0] = BruteForceGIDProcesses;
+                anal_funcs[t] = BruteForceGIDProcesses;
+            }
+            else if (arguments->only_processes_kill)
+            {
+                anal_funcs[t] = BruteForceKillProcesses;
             }
             else
             {
-                anal_funcs[0] = BruteForceGIDProcesses;
-                anal_funcs[1] = BruteForceGIDFiles;
+                anal_funcs[t++] = BruteForceGIDProcesses;
+                anal_funcs[t++] = BruteForceGIDFiles;
+                anal_funcs[t++] = BruteForceKillProcesses;
             }
 
             detected = 0;
