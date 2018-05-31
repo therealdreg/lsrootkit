@@ -160,6 +160,7 @@ lsrootkit options (all analysis are ON by default):
       --disable-each-display Disable each display messages
       --only-gid-files       Only bruteforce files GID
       --only-gid-processes   Only bruteforce processes GID
+      --only-kill-processes  Only bruteforce processes Kill
       --report-path[=FILE]   Set new report path. it needs also the name.
                              Example: --report-path=/root/analysis.txt
       --tmp-path[=FILE]      Set new temp path dir. Example:
