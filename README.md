@@ -189,6 +189,10 @@ Please, I need your help to mantain this list!! (create an issue with info)
 - jynxkit: LD_PRELOAD userland rootkit for Linux. https://github.com/chokepoint/jynxkit
   - detected via: normal detection.
   - reported by: Dreg
+  
+# TODO
+
+* kill bruteforcing child
 
 # Referenced by
 
