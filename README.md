@@ -3,6 +3,8 @@ Rootkit Detector for UNIX (the actual beta only works as expected in Linux)
 
 Tool created in 2013 to complement Unhide Forensic Tool: http://www.unhide-forensics.info/
 
+Please, consider make a donation: https://github.com/sponsors/therealdreg
+
 **Warning!!: the code is bullshit (is only a beta prototype).**
 
 # Compile & Run
